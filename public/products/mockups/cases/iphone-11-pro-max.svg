@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 900" role="img" aria-labelledby="title description">
+  <title id="title">Carcasa negra para iPhone 11 Pro Max</title>
+  <desc id="description">Plantilla original ArtPrint de formato grande con módulo de tres cámaras.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f8f5f1"/><stop offset="1" stop-color="#e6e2dd"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#34393f"/><stop offset=".5" stop-color="#07090b"/><stop offset="1" stop-color="#23282d"/></linearGradient>
+    <radialGradient id="lens"><stop stop-color="#304b61"/><stop offset=".35" stop-color="#101922"/><stop offset="1" stop-color="#020304"/></radialGradient>
+    <filter id="shadow" x="-30%" y="-20%" width="160%" height="160%"><feDropShadow dx="0" dy="24" stdDeviation="24" flood-color="#15181c" flood-opacity=".22"/></filter>
+  </defs>
+  <rect width="800" height="900" rx="44" fill="url(#bg)"/>
+  <ellipse cx="400" cy="852" rx="232" ry="25" fill="#15181c" opacity=".12"/>
+  <g filter="url(#shadow)">
+    <rect x="170" y="22" width="460" height="825" rx="82" fill="url(#edge)"/>
+    <rect x="189" y="41" width="422" height="787" rx="65" fill="#fcfcfb"/>
+    <path d="M189 107Q189 41 255 41H376V222H189Z" fill="#101318"/>
+    <rect x="206" y="58" width="150" height="149" rx="43" fill="#252a2f" stroke="#050607" stroke-width="9"/>
+    <circle cx="251" cy="101" r="34" fill="url(#lens)" stroke="#5d6670" stroke-width="5"/>
+    <circle cx="311" cy="112" r="34" fill="url(#lens)" stroke="#5d6670" stroke-width="5"/>
+    <circle cx="260" cy="173" r="34" fill="url(#lens)" stroke="#5d6670" stroke-width="5"/>
+    <circle cx="326" cy="173" r="12" fill="#f4e4b7"/><circle cx="328" cy="150" r="5" fill="#606a73"/>
+    <path d="M611 269h11v92h-11M178 252h-10v66h10M178 339h-10v98h10" fill="#161a1e"/>
+    <rect x="204" y="238" width="392" height="570" rx="43" fill="none" stroke="#ece9e5" stroke-width="2"/>
+  </g>
+  <g text-anchor="middle" font-family="Arial, sans-serif"><text x="400" y="500" font-size="22" font-weight="700" letter-spacing="6" fill="#24292e">TU DISEÑO</text><text x="400" y="529" font-size="12" letter-spacing="3" fill="#8a8f94">VISTA PREVIA</text><text x="400" y="884" font-size="14" font-weight="700" letter-spacing="3" fill="#555b61">IPHONE 11 PRO MAX · 3 CÁMARAS</text></g>
+</svg>

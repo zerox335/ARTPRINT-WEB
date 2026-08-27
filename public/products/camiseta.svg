@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 900" role="img" aria-labelledby="title">
+  <title id="title">Camiseta premium blanca</title>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#edeaff"/><stop offset="1" stop-color="#d9fff5"/></linearGradient><filter id="s"><feDropShadow dx="0" dy="18" stdDeviation="20" flood-opacity=".16"/></filter></defs>
+  <rect width="800" height="900" rx="58" fill="url(#bg)"/>
+  <circle cx="675" cy="145" r="78" fill="#ff4f9a" opacity=".16"/><circle cx="105" cy="720" r="110" fill="#45dbc5" opacity=".22"/>
+  <path d="M276 174c45 29 203 29 248 0l132 72-74 153-75-35v356c-62 45-292 45-354 0V364l-75 35-74-153 132-72c31 20 47 29 78 37 14 59 138 59 152 0 31-8 47-17 78-37z" fill="#fff" stroke="#c8c6c1" stroke-width="5" filter="url(#s)"/>
+  <path d="M314 190c13 60 159 60 172 0" fill="none" stroke="#c9c7c2" stroke-width="9"/>
+</svg>

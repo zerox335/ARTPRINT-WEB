@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: artprint
+      POSTGRES_USER: artprint
+      POSTGRES_PASSWORD: artprint_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - artprint_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U artprint -d artprint"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  artprint_postgres:
+

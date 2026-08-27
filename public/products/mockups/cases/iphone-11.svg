@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 900" role="img" aria-labelledby="title description">
+  <title id="title">Carcasa negra para iPhone 11</title>
+  <desc id="description">Plantilla original ArtPrint con módulo de dos cámaras.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f8f5f1"/><stop offset="1" stop-color="#e8e4df"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#30353b"/><stop offset=".48" stop-color="#080a0d"/><stop offset="1" stop-color="#22272c"/></linearGradient>
+    <radialGradient id="lens"><stop stop-color="#29445b"/><stop offset=".35" stop-color="#101820"/><stop offset="1" stop-color="#030405"/></radialGradient>
+    <filter id="shadow" x="-30%" y="-20%" width="160%" height="160%"><feDropShadow dx="0" dy="24" stdDeviation="24" flood-color="#15181c" flood-opacity=".22"/></filter>
+  </defs>
+  <rect width="800" height="900" rx="44" fill="url(#bg)"/>
+  <ellipse cx="400" cy="842" rx="220" ry="25" fill="#15181c" opacity=".12"/>
+  <g filter="url(#shadow)">
+    <rect x="185" y="32" width="430" height="808" rx="78" fill="url(#edge)"/>
+    <rect x="203" y="50" width="394" height="772" rx="63" fill="#fcfcfb"/>
+    <path d="M203 113Q203 50 266 50H355V203H203Z" fill="#111419"/>
+    <rect x="220" y="66" width="121" height="122" rx="35" fill="#252a2f" stroke="#050607" stroke-width="8"/>
+    <circle cx="262" cy="104" r="31" fill="url(#lens)" stroke="#56606a" stroke-width="5"/>
+    <circle cx="299" cy="151" r="31" fill="url(#lens)" stroke="#56606a" stroke-width="5"/>
+    <circle cx="307" cy="96" r="12" fill="#f4e4b7"/><circle cx="260" cy="156" r="5" fill="#606a73"/>
+    <path d="M597 266h10v88h-10M193 250h-10v62h10M193 332h-10v92h10" fill="#161a1e"/>
+    <rect x="217" y="218" width="366" height="584" rx="42" fill="none" stroke="#ece9e5" stroke-width="2"/>
+  </g>
+  <g text-anchor="middle" font-family="Arial, sans-serif"><text x="400" y="482" font-size="22" font-weight="700" letter-spacing="6" fill="#24292e">TU DISEÑO</text><text x="400" y="511" font-size="12" letter-spacing="3" fill="#8a8f94">VISTA PREVIA</text><text x="400" y="880" font-size="14" font-weight="700" letter-spacing="3" fill="#555b61">IPHONE 11 · 2 CÁMARAS</text></g>
+</svg>
