@@ -10,7 +10,7 @@ import { apiError, assertRateLimit, assertSameOrigin, clientKey } from "@/src/sh
 export async function POST(request: NextRequest) {
   try {
     assertSameOrigin(request);
-    assertRateLimit(`upload:${clientKey(request)}`, 20, 60 * 60 * 1000);
+    assertRateLimit(`upload:${clientKey(request)}`, env.DEMO_MODE === "true" || !env.DATABASE_URL ? 200 : 60, 60 * 60 * 1000);
     const form = await request.formData();
     const file = form.get("file");
     if (!(file instanceof File)) return NextResponse.json({ error: "FILE_REQUIRED", message: "Selecciona una imagen" }, { status: 400 });
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     // The local demo intentionally runs without PostgreSQL. The editor renders
     // the selected file from the browser, so a validated temporary identifier is
     // enough to preview the design without persisting customer uploads.
-    if (env.DEMO_MODE === "true") {
+    if (env.DEMO_MODE === "true" || !env.DATABASE_URL) {
       return NextResponse.json({
         asset: {
           id: `demo-${validated.sha256.slice(0, 24)}-${randomUUID()}`,

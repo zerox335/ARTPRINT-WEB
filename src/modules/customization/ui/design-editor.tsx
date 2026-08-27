@@ -45,6 +45,15 @@ function useHtmlImage(src?: string) {
   return image;
 }
 
+function localImageSize(sourceUrl: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const image = new window.Image();
+    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
+    image.onerror = () => reject(new Error("No pudimos leer esta imagen. Prueba con otro archivo PNG, JPG o WEBP"));
+    image.src = sourceUrl;
+  });
+}
+
 function EditorImage({ element, selected, onSelect, onChange, bounds }: { element: Extract<EditorElement, { type: "IMAGE" }>; selected: boolean; onSelect: () => void; onChange: (updates: Partial<EditorElement>) => void; bounds: { x: number; y: number; width: number; height: number } }) {
   const image = useHtmlImage(element.sourceUrl);
   const nodeRef = useRef<Konva.Image>(null);
@@ -60,8 +69,9 @@ function EditorText({ element, selected, onSelect, onChange, bounds }: { element
   return <><Text ref={nodeRef} {...element} fontSize={30} fontStyle="bold" verticalAlign="middle" draggable dragBoundFunc={(position) => ({ x: Math.max(bounds.x, Math.min(bounds.x + bounds.width - 20, position.x)), y: Math.max(bounds.y, Math.min(bounds.y + bounds.height - 20, position.y)) })} onClick={onSelect} onTap={onSelect} onDragEnd={(event) => onChange({ x: event.target.x(), y: event.target.y() })} onTransformEnd={() => { const node = nodeRef.current; if (node) onChange({ x: node.x(), y: node.y(), scaleX: Math.max(.1, node.scaleX()), scaleY: Math.max(.1, node.scaleY()), rotation: node.rotation() }); }} />{selected && <Transformer ref={transformerRef} flipEnabled={false} anchorSize={20} borderStrokeWidth={2} rotateAnchorOffset={32} />}</>;
 }
 
-export default function DesignEditor({ product, area, variantColor, onChange }: { product: ProductView; area: PrintAreaView; variantColor?: string; onChange: (elements: CustomizationSpec["elements"]) => void }) {
+export default function DesignEditor({ product, area, variantColor, previewOnly = false, onChange }: { product: ProductView; area: PrintAreaView; variantColor?: string; previewOnly?: boolean; onChange: (elements: CustomizationSpec["elements"]) => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const localObjectUrls = useRef<string[]>([]);
   const [width, setWidth] = useState(600);
   const height = Math.round(width * 1.125);
   const [elements, setElements] = useState<EditorElement[]>([]);
@@ -80,6 +90,9 @@ export default function DesignEditor({ product, area, variantColor, onChange }: 
     observer.observe(wrapRef.current);
     return () => observer.disconnect();
   }, []);
+  useEffect(() => () => {
+    for (const sourceUrl of localObjectUrls.current) URL.revokeObjectURL(sourceUrl);
+  }, []);
   const areaRect = useMemo(() => ({ x: (area.x / 100) * width, y: (area.y / 100) * height, width: (area.width / 100) * width, height: (area.height / 100) * height }), [area, width, height]);
   const movementBounds = useMemo(() => area.allowOverflow ? { x: 0, y: 0, width, height } : areaRect, [area.allowOverflow, areaRect, height, width]);
   const exclusionRects = useMemo(() => (area.exclusions ?? []).map((exclusion) => ({
@@ -91,7 +104,18 @@ export default function DesignEditor({ product, area, variantColor, onChange }: 
     cornerRadius: ((exclusion.radius ?? 0) / 100) * width,
   })), [area.exclusions, width, height]);
   const clipPrintableArea = useMemo(() => (context: Konva.Context) => {
-    context.rect(areaRect.x, areaRect.y, areaRect.width, areaRect.height);
+    if (isDrinkware) {
+      const { x, y, width: areaWidth, height: areaHeight } = areaRect;
+      const curve = Math.min(areaHeight * .08, 18);
+      context.beginPath();
+      context.moveTo(x, y + curve);
+      context.bezierCurveTo(x + areaWidth * .22, y - curve * .35, x + areaWidth * .78, y - curve * .35, x + areaWidth, y + curve);
+      context.lineTo(x + areaWidth, y + areaHeight - curve);
+      context.bezierCurveTo(x + areaWidth * .78, y + areaHeight + curve * .35, x + areaWidth * .22, y + areaHeight + curve * .35, x, y + areaHeight - curve);
+      context.closePath();
+    } else {
+      context.rect(areaRect.x, areaRect.y, areaRect.width, areaRect.height);
+    }
     for (const exclusion of exclusionRects) {
       context.moveTo(exclusion.x, exclusion.y);
       context.lineTo(exclusion.x, exclusion.y + exclusion.height);
@@ -100,7 +124,7 @@ export default function DesignEditor({ product, area, variantColor, onChange }: 
       context.closePath();
     }
     return ["evenodd"] as [CanvasFillRule];
-  }, [areaRect, exclusionRects]);
+  }, [areaRect, exclusionRects, isDrinkware]);
   useEffect(() => {
     onChange(elements.map((element) => {
       if (element.type === "TEXT") return element;
@@ -116,18 +140,35 @@ export default function DesignEditor({ product, area, variantColor, onChange }: 
   async function uploadImage(file?: File) {
     if (!file) return;
     setUploading(true); setUploadError("");
+    const sourceUrl = URL.createObjectURL(file);
     try {
-      const form = new FormData(); form.set("file", file);
-      const response = await fetch("/api/uploads", { method: "POST", body: form });
-      const data = await response.json() as { asset?: { id: string; url: string; width?: number; height?: number }; message?: string };
-      if (!response.ok || !data.asset) throw new Error(data.message ?? "No pudimos cargar la imagen");
-      const sourceUrl = URL.createObjectURL(file);
-      const naturalRatio = (data.asset.width ?? 1) / (data.asset.height ?? 1);
-      const targetWidth = isDrinkware ? areaRect.width * .9 : Math.min(areaRect.width * .72, 180);
+      let asset: { id: string; width?: number; height?: number };
+      if (previewOnly) {
+        const extension = file.name.split(".").pop()?.toLowerCase();
+        if (file.size < 1 || file.size > 12 * 1024 * 1024) throw new Error("La imagen debe pesar menos de 12 MB");
+        if (!new Set(["png", "jpg", "jpeg", "webp"]).has(extension ?? "")) throw new Error("Para esta vista usa una imagen PNG, JPG o WEBP");
+        const dimensions = await localImageSize(sourceUrl);
+        asset = { id: `preview-${crypto.randomUUID()}`, ...dimensions };
+      } else {
+        const form = new FormData(); form.set("file", file);
+        const response = await fetch("/api/uploads", { method: "POST", body: form });
+        const data = await response.json() as { asset?: { id: string; width?: number; height?: number }; message?: string };
+        if (!response.ok || !data.asset) throw new Error(data.message ?? "No pudimos cargar la imagen");
+        asset = data.asset;
+      }
+      const naturalRatio = (asset.width ?? 1) / (asset.height ?? 1);
+      const availableWidth = isDrinkware ? areaRect.width * .94 : Math.min(areaRect.width * .72, 180);
+      const availableHeight = isDrinkware ? areaRect.height * .9 : Number.POSITIVE_INFINITY;
+      const targetWidth = Math.min(availableWidth, availableHeight * naturalRatio);
+      const targetHeight = targetWidth / naturalRatio;
       const id = crypto.randomUUID();
-      setElements((current) => [...current, { id, type: "IMAGE", printAreaId: area.id, x: areaRect.x + (areaRect.width - targetWidth) / 2, y: areaRect.y + areaRect.height * .2, width: targetWidth, height: targetWidth / naturalRatio, scaleX: 1, scaleY: 1, rotation: 0, layerIndex: current.length, assetId: data.asset!.id, originalStorageKey: "server-canonicalized", sourceUrl }]);
+      localObjectUrls.current.push(sourceUrl);
+      setElements((current) => [...current, { id, type: "IMAGE", printAreaId: area.id, x: areaRect.x + (areaRect.width - targetWidth) / 2, y: areaRect.y + (areaRect.height - targetHeight) / 2, width: targetWidth, height: targetHeight, scaleX: 1, scaleY: 1, rotation: 0, layerIndex: current.length, assetId: asset.id, originalStorageKey: previewOnly ? "preview-only" : "server-canonicalized", sourceUrl }]);
       setSelectedId(id);
-    } catch (error) { setUploadError((error as Error).message); } finally { setUploading(false); }
+    } catch (error) {
+      URL.revokeObjectURL(sourceUrl);
+      setUploadError((error as Error).message);
+    } finally { setUploading(false); }
   }
 
   function updateElement(id: string, updates: Partial<EditorElement>) { setElements((current) => current.map((element) => element.id === id ? { ...element, ...updates } as EditorElement : element)); }
@@ -174,7 +215,7 @@ export default function DesignEditor({ product, area, variantColor, onChange }: 
       {textileColorStyle && <span className="textile-color-layer" style={textileColorStyle} aria-hidden="true" />}
       <Stage width={width} height={height} className="konva-stage" onMouseDown={(event) => { if (event.target === event.target.getStage()) setSelectedId(null); }} onTouchStart={(event) => { if (event.target === event.target.getStage()) setSelectedId(null); }}>
         <Layer listening={false}>
-          <Rect {...areaRect} cornerRadius={isDrinkware ? areaRect.width * .12 : 0} fill="rgba(128,109,240,.06)" stroke="#806df0" strokeWidth={2} dash={[10, 8]} />
+          {!isDrinkware && <Rect {...areaRect} fill="rgba(128,109,240,.06)" stroke="#806df0" strokeWidth={2} dash={[10, 8]} />}
           {exclusionRects.map((exclusion) => <Rect key={exclusion.id} {...exclusion} fill="rgba(255,86,116,.13)" stroke="#ff5674" strokeWidth={2} dash={[6, 5]} />)}
         </Layer>
         <Layer clipFunc={area.allowOverflow ? undefined : clipPrintableArea}>{visible.map((element) => element.type === "IMAGE" ? <EditorImage key={element.id} element={element} selected={selectedId === element.id} onSelect={() => setSelectedId(element.id)} onChange={(updates) => updateElement(element.id, updates)} bounds={movementBounds} /> : <EditorText key={element.id} element={element} selected={selectedId === element.id} onSelect={() => setSelectedId(element.id)} onChange={(updates) => updateElement(element.id, updates)} bounds={movementBounds} />)}</Layer>

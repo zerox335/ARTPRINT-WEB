@@ -8,6 +8,7 @@ export function apiError(error: unknown): NextResponse {
   }
   if (error instanceof Error && error.message === "UNAUTHENTICATED") return NextResponse.json({ error: "UNAUTHENTICATED", message: "Inicia sesión para continuar" }, { status: 401 });
   if (error instanceof Error && error.message === "FORBIDDEN") return NextResponse.json({ error: "FORBIDDEN", message: "No tienes permiso para realizar esta acción" }, { status: 403 });
+  if (error instanceof Error && error.message === "RATE_LIMITED") return NextResponse.json({ error: "RATE_LIMITED", message: "Has cargado muchas imágenes. Espera un momento e inténtalo de nuevo" }, { status: 429 });
   console.error("Unhandled API error", error instanceof Error ? { name: error.name, message: error.message } : { error: "unknown" });
   return NextResponse.json({ error: "INTERNAL_ERROR", message: "No pudimos completar la solicitud" }, { status: 500 });
 }
