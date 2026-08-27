@@ -29,6 +29,7 @@ export function ProductCustomizer({ product, initialVariantId, initialQuantity }
   const handleElements = useCallback((next: CustomizationSpec["elements"]) => setElements(next), []);
   const areas = useMemo<QuoteRequest["areas"]>(() => product.printAreas.flatMap((area) => { const count = elements.filter((element) => element.printAreaId === area.id).length; return count ? [{ areaKey: area.key, size, elementCount: count, hasPersonalizedText: elements.some((element) => element.printAreaId === area.id && element.type === "TEXT") }] : []; }), [elements, product.printAreas, size]);
   const isPhoneCase = product.categorySlug === "carcasas";
+  const isDrinkware = product.categorySlug === "mugs-termos";
 
   useEffect(() => {
     if (!variantId) return;
@@ -51,7 +52,7 @@ export function ProductCustomizer({ product, initialVariantId, initialQuantity }
   return (
     <div className={`customizer-layout container${isPhoneCase ? " case-customizer-layout" : ""}`}>
       <section className="customizer-workspace">
-        <div className="customizer-heading"><div><p className="eyebrow">Estudio ArtPrint</p><h1>{isPhoneCase ? "Diseña sobre el molde real" : "Hazlo inconfundiblemente tuyo"}</h1></div><span>Paso 1 de 2 · Diseña</span></div>
+        <div className="customizer-heading"><div><p className="eyebrow">Estudio ArtPrint</p><h1>{isPhoneCase ? "Diseña sobre el molde real" : isDrinkware ? "Mira cómo abraza tu vaso" : "Hazlo inconfundiblemente tuyo"}</h1></div><span>Paso 1 de 2 · Diseña</span></div>
         <div className="view-tabs" role="tablist" aria-label="Vista del producto">{product.printAreas.map((area) => <button role="tab" aria-selected={area.id === activeArea.id} className={area.id === activeArea.id ? "active" : ""} key={area.id} onClick={() => setActiveAreaId(area.id)}>{area.name}</button>)}</div>
         <DesignEditor product={product} area={activeArea} variantColor={variant?.colorHex} onChange={handleElements} />
       </section>

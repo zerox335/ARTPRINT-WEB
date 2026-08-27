@@ -72,6 +72,7 @@ export default function DesignEditor({ product, area, variantColor, onChange }: 
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [activeTool, setActiveTool] = useState<"IMAGE" | "TEXT" | "DESIGNS" | "LAYERS">("IMAGE");
+  const isDrinkware = product.categorySlug === "mugs-termos";
 
   useEffect(() => {
     if (!wrapRef.current) return;
@@ -122,7 +123,7 @@ export default function DesignEditor({ product, area, variantColor, onChange }: 
       if (!response.ok || !data.asset) throw new Error(data.message ?? "No pudimos cargar la imagen");
       const sourceUrl = URL.createObjectURL(file);
       const naturalRatio = (data.asset.width ?? 1) / (data.asset.height ?? 1);
-      const targetWidth = Math.min(areaRect.width * .72, 180);
+      const targetWidth = isDrinkware ? areaRect.width * .9 : Math.min(areaRect.width * .72, 180);
       const id = crypto.randomUUID();
       setElements((current) => [...current, { id, type: "IMAGE", printAreaId: area.id, x: areaRect.x + (areaRect.width - targetWidth) / 2, y: areaRect.y + areaRect.height * .2, width: targetWidth, height: targetWidth / naturalRatio, scaleX: 1, scaleY: 1, rotation: 0, layerIndex: current.length, assetId: data.asset!.id, originalStorageKey: "server-canonicalized", sourceUrl }]);
       setSelectedId(id);
@@ -155,6 +156,12 @@ export default function DesignEditor({ product, area, variantColor, onChange }: 
   const isColorableTextile = product.categorySlug === "textiles" && Boolean(variantColor);
   const textileMask = area.mockupImageUrl ?? product.imageUrl;
   const textileColorStyle = isColorableTextile ? { backgroundColor: variantColor, maskImage: `url(${textileMask})`, WebkitMaskImage: `url(${textileMask})`, ...(area.mirrorMockup ? { transform: "scaleX(-1)" } : {}) } as CSSProperties : undefined;
+  const drinkwarePreviewStyle = isDrinkware ? {
+    "--print-left": `${area.x}%`,
+    "--print-top": `${area.y}%`,
+    "--print-width": `${area.width}%`,
+    "--print-height": `${area.height}%`,
+  } as CSSProperties : undefined;
   const scaleControl = <div className="element-scale-control"><span>Tamaño</span><button type="button" onClick={() => setSelectedScale(selectedScale - 10)} disabled={!selectedElement || selectedScale <= 10} aria-label="Reducir elemento"><Minus size={15} /></button><input type="range" min="10" max="1200" step="5" value={selectedScale} disabled={!selectedElement} onChange={(event) => setSelectedScale(Number(event.target.value))} aria-label="Tamaño del elemento seleccionado" /><output>{selectedElement ? `${selectedScale}%` : "—"}</output><button type="button" onClick={() => setSelectedScale(selectedScale + 10)} disabled={!selectedElement || selectedScale >= 1200} aria-label="Agrandar elemento"><Plus size={15} /></button></div>;
   const fitControls = <div className="element-fit-actions"><button type="button" disabled={!selectedElement} onClick={() => fitSelected("contain")}><Frame size={15} /> Ajustar completo</button><button type="button" disabled={!selectedElement} onClick={() => fitSelected("cover")}><Sparkles size={15} /> Rellenar área</button></div>;
   const selectedTextEditor = selectedElement?.type === "TEXT" ? <div className="selected-text-editor"><label>Editar texto<input value={selectedElement.content} maxLength={300} onChange={(event) => updateElement(selectedElement.id, { content: event.target.value })} /></label><label>Fuente<select value={selectedElement.fontFamily} onChange={(event) => updateElement(selectedElement.id, { fontFamily: event.target.value as typeof selectedElement.fontFamily })}><option>Inter</option><option>Arial</option><option>Georgia</option><option>Courier New</option><option>Trebuchet MS</option></select></label><label>Color<input type="color" value={selectedElement.fill} onChange={(event) => updateElement(selectedElement.id, { fill: event.target.value })} /></label></div> : null;
@@ -162,17 +169,18 @@ export default function DesignEditor({ product, area, variantColor, onChange }: 
   const layerTools = <div className="layer-tools"><button onClick={duplicateSelected} disabled={!selectedElement} title="Duplicar"><Copy size={17} /></button><button onClick={centerSelected} disabled={!selectedElement} title="Centrar"><AlignCenter size={17} /></button><button onClick={() => moveLayer("front")} disabled={!selectedElement} title="Traer al frente"><BringToFront size={17} /></button><button onClick={() => moveLayer("back")} disabled={!selectedElement} title="Enviar atrás"><SendToBack size={17} /></button><button onClick={() => selectedElement && updateElement(selectedElement.id, { rotation: 0, scaleX: 1, scaleY: 1 })} disabled={!selectedElement} title="Restablecer transformación"><RotateCcw size={17} /></button><button className="danger-tool" onClick={removeSelected} disabled={!selectedElement} title="Eliminar"><Trash2 size={17} /></button></div>;
   const canvas = <>
     {uploadError && <p className="inline-alert" role="alert">{uploadError}</p>}
-    <div className={`canvas-shell${isColorableTextile ? " textile-canvas" : ""}`} ref={wrapRef}>
+    <div className={`canvas-shell${isColorableTextile ? " textile-canvas" : ""}${isDrinkware ? " drinkware-canvas" : ""}`} ref={wrapRef}>
       <NextImage className={area.mirrorMockup ? "mockup-mirrored" : undefined} src={area.mockupImageUrl ?? product.imageUrl} alt={`Mockup de ${product.name}, ${area.name}`} fill sizes="(max-width: 940px) 100vw, 600px" priority />
       {textileColorStyle && <span className="textile-color-layer" style={textileColorStyle} aria-hidden="true" />}
       <Stage width={width} height={height} className="konva-stage" onMouseDown={(event) => { if (event.target === event.target.getStage()) setSelectedId(null); }} onTouchStart={(event) => { if (event.target === event.target.getStage()) setSelectedId(null); }}>
         <Layer listening={false}>
-          <Rect {...areaRect} fill="rgba(128,109,240,.06)" stroke="#806df0" strokeWidth={2} dash={[10, 8]} />
+          <Rect {...areaRect} cornerRadius={isDrinkware ? areaRect.width * .12 : 0} fill="rgba(128,109,240,.06)" stroke="#806df0" strokeWidth={2} dash={[10, 8]} />
           {exclusionRects.map((exclusion) => <Rect key={exclusion.id} {...exclusion} fill="rgba(255,86,116,.13)" stroke="#ff5674" strokeWidth={2} dash={[6, 5]} />)}
         </Layer>
         <Layer clipFunc={area.allowOverflow ? undefined : clipPrintableArea}>{visible.map((element) => element.type === "IMAGE" ? <EditorImage key={element.id} element={element} selected={selectedId === element.id} onSelect={() => setSelectedId(element.id)} onChange={(updates) => updateElement(element.id, updates)} bounds={movementBounds} /> : <EditorText key={element.id} element={element} selected={selectedId === element.id} onSelect={() => setSelectedId(element.id)} onChange={(updates) => updateElement(element.id, updates)} bounds={movementBounds} />)}</Layer>
       </Stage>
-      <span className="print-area-label">{area.name} · {area.realWidthCm} × {area.realHeightCm} cm{area.allowOverflow ? " · edición libre" : ""}{exclusionRects.length ? " · cámara protegida" : ""}</span>
+      {isDrinkware && <span className="drinkware-curvature" style={drinkwarePreviewStyle} aria-hidden="true" />}
+      <span className="print-area-label">{isDrinkware ? "Vista envolvente" : area.name} · {area.realWidthCm} × {area.realHeightCm} cm{area.allowOverflow ? " · edición libre" : ""}{exclusionRects.length ? " · cámara protegida" : ""}</span>
     </div>
   </>;
 
@@ -211,7 +219,7 @@ export default function DesignEditor({ product, area, variantColor, onChange }: 
       {scaleControl}
       {fitControls}
       {canvas}
-      <p className="editor-hint">Arrastra la imagen y usa los puntos blancos de las esquinas para ampliarla, reducirla o girarla. {area.allowOverflow ? "Puedes extenderla fuera del borde morado y ajustarla sobre toda la prenda." : "El borde morado indica el área imprimible."} Las zonas rosadas están protegidas. Producción utiliza tu archivo original.</p>
+      <p className="editor-hint">{isDrinkware ? "La vista curva suavemente el diseño hacia los bordes para mostrar cómo se adapta al vaso. Es una simulación: producción usa tu archivo original plano con las medidas indicadas." : <>Arrastra la imagen y usa los puntos blancos de las esquinas para ampliarla, reducirla o girarla. {area.allowOverflow ? "Puedes extenderla fuera del borde morado y ajustarla sobre toda la prenda." : "El borde morado indica el área imprimible."} Las zonas rosadas están protegidas. Producción utiliza tu archivo original.</>}</p>
     </div>
   );
 }

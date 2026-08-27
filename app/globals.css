@@ -316,6 +316,9 @@ img { max-width: 100%; height: auto; }
 .canvas-shell.textile-canvas { background: radial-gradient(circle at 50% 42%,#fff 0,#f4f1eb 62%,#e8e3dc 100%); }
 .canvas-shell.textile-canvas > img { object-fit: contain; }
 .canvas-shell > img.mockup-mirrored { transform: scaleX(-1); }
+.canvas-shell.drinkware-canvas { background: radial-gradient(circle at 50% 38%,#fff 0,#f4f2ed 68%,#e5e1da 100%); }
+.drinkware-canvas .konva-stage { mix-blend-mode: multiply; }
+.drinkware-curvature { position: absolute; z-index: 3; left: var(--print-left); top: var(--print-top); width: var(--print-width); height: var(--print-height); pointer-events: none; border-radius: 42% 42% 38% 38% / 8% 8% 10% 10%; background: linear-gradient(90deg,rgba(24,29,35,.2),rgba(255,255,255,.03) 17%,rgba(255,255,255,.13) 48%,rgba(255,255,255,.02) 78%,rgba(24,29,35,.22)); box-shadow: inset 12px 0 17px rgba(20,24,29,.16), inset -13px 0 19px rgba(20,24,29,.18), inset 0 2px 4px rgba(255,255,255,.34); mix-blend-mode: soft-light; -webkit-mask-image: radial-gradient(ellipse 88% 100% at 50% 50%,#000 68%,transparent 100%); mask-image: radial-gradient(ellipse 88% 100% at 50% 50%,#000 68%,transparent 100%); }
 .textile-color-layer { position: absolute; z-index: 1; inset: 0; background-position: center; background-size: 100% 100%; mask-position: center; mask-repeat: no-repeat; mask-size: contain; -webkit-mask-position: center; -webkit-mask-repeat: no-repeat; -webkit-mask-size: contain; mix-blend-mode: multiply; opacity: .96; pointer-events: none; }
 .konva-stage { position: relative; z-index: 2; }
 .print-area-label { position: absolute; z-index: 3; left: 50%; bottom: 12px; transform: translateX(-50%); white-space: nowrap; padding: 7px 10px; border-radius: 999px; color: #fff; background: rgba(28,32,39,.74); backdrop-filter: blur(8px); font-size: .65rem; font-weight: 750; pointer-events: none; }
