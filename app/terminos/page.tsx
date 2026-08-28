@@ -1,0 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Términos de compra", robots: { index: true, follow: true } };
+
+export default function TermsPage() {
+  return <article className="container legal-page"><p className="eyebrow">Términos de compra</p><h1>Condiciones claras para productos personalizados</h1><h2>Precio y pago</h2><p>El total se calcula nuevamente en el servidor antes de crear el pedido. La compra se considera pagada únicamente cuando la pasarela confirma la transacción.</p><h2>Diseños y autorización</h2><p>El cliente declara que tiene autorización para usar las imágenes, marcas y textos que entrega. ArtPrint puede rechazar contenido ilegal o que vulnere derechos de terceros.</p><h2>Prueba y producción</h2><p>Cuando el pedido requiera prueba, la producción comienza después de que el cliente la apruebe. Los cambios solicitados generan una nueva versión para revisión.</p><h2>Color y acabado</h2><p>Las pantallas y los procesos de impresión pueden producir variaciones razonables de color. La prueba es una representación del resultado y el archivo original se conserva para producción.</p><h2>Entrega y garantía</h2><p>Los tiempos publicados se cuentan desde la aprobación del diseño. Los defectos de fabricación o diferencias frente a la prueba aprobada deben reportarse con fotografías y número de pedido para su revisión.</p><p className="legal-updated">Última actualización: agosto de 2026.</p></article>;
+}

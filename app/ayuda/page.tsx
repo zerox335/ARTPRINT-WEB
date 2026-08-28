@@ -1,0 +1,9 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { FileCheck2, MessageCircle, PackageCheck, Palette, Truck } from "lucide-react";
+
+export const metadata: Metadata = { title: "Ayuda, envíos y cambios", description: "Cómo personalizar, aprobar, recibir y solicitar cambios en pedidos ArtPrint." };
+
+export default function HelpPage() {
+  return <section className="container policy-page"><div className="page-hero-grid"><div><p className="eyebrow">Centro de ayuda</p><h1>Tu pedido, sin sorpresas</h1></div><p>Te explicamos qué ocurre desde que subes tu imagen hasta que recibes el producto.</p></div><div className="policy-grid"><article id="personalizar"><Palette size={25} /><h2>Personalización</h2><p>Sube PNG, JPG, WEBP o SVG seguro. Puedes mover, escalar, girar, añadir texto y dejar instrucciones. El avance se guarda automáticamente en el mismo navegador.</p></article><article><FileCheck2 size={25} /><h2>Aprobación</h2><p>Antes de producir, ArtPrint puede enviarte una prueba final. Desde tu pedido puedes aprobarla o describir los cambios que necesites.</p></article><article id="envios"><Truck size={25} /><h2>Envíos y recogida</h2><p>El valor aparece antes del pago. También puedes elegir recogida coordinada con ArtPrint. El tiempo de producción comienza después de aprobar el diseño.</p></article><article id="cambios"><PackageCheck size={25} /><h2>Cambios y garantías</h2><p>Si recibes un producto con defecto de fabricación o diferente a la prueba aprobada, contáctanos con fotografías y el número de pedido. Revisaremos el caso antes de reproducir o reembolsar.</p></article></div><div className="help-cta"><MessageCircle size={28} /><div><h2>¿Tu idea necesita ayuda?</h2><p>Envíanos el número del pedido y una explicación breve.</p></div><Link className="button button-gradient" href="/mi-cuenta">Consultar mi pedido</Link></div></section>;
+}

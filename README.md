@@ -2,11 +2,11 @@
 
 ## Inicio rápido en este equipo
 
-Haz doble clic en `INICIAR-ARTPRINT.cmd`. El lanzador inicia PostgreSQL, levanta la aplicación y abre `http://127.0.0.1:3000` automáticamente. Mantén abierta la ventana titulada `Servidor ArtPrint - no cerrar` mientras uses la tienda.
+Haz doble clic en `INICIAR-ARTPRINT.cmd`. En el primer inicio, el lanzador instala dependencias si hacen falta, genera Prisma, inicia PostgreSQL local o Docker, aplica las migraciones, carga el catálogo y abre `http://127.0.0.1:3000`. Mantén abierta la ventana titulada `Servidor ArtPrint - no cerrar` mientras uses la tienda.
 
 Base comercial de e-commerce para productos personalizados. El flujo vertical implementado es:
 
-**personalizar → previsualizar → cotizar en servidor → carrito → autenticar → crear pedido → pagar en sandbox/proveedor → confirmar por evento → producir**.
+**personalizar → guardar automáticamente → previsualizar → cotizar en servidor → carrito → autenticar → crear pedido → pagar → recibir prueba → aprobar o pedir cambios → producir**.
 
 No es una landing estática: incluye catálogo, editor Konva, carga de originales, Price Engine, carrito, checkout, sesiones, PostgreSQL/Prisma, pedidos con snapshots, pagos intercambiables, administración, auditoría, analítica de negocio y pruebas.
 
@@ -144,6 +144,10 @@ Once modelos iniciales cuentan con una plantilla gráfica calibrada, incluidos i
 
 Una capa seleccionada puede escalarse con tiradores grandes, deslizador, botones o las acciones **Ajustar completo** y **Rellenar área**. La camiseta base ofrece mockups realistas separados para frente, espalda y ambos laterales, responde al color de la variante y permite extender el diseño por toda la vista cuando el área administrativa habilita desbordamiento. La galería de diseños de muestra agrega plantillas editables diferentes para carcasas, textiles y productos de bebida. El cliente también puede escribir instrucciones de hasta 1000 caracteres; la nota viaja en la personalización del carrito y se conserva en el snapshot histórico del pedido.
 
+Mugs, vasos y termos utilizan una sola vista frontal con recorte curvo y sombreado lateral para integrar visualmente el diseño al cilindro. La guía desaparece cuando ya hay contenido. El editor conserva borradores en el navegador, incluye deshacer/rehacer y guarda una vista personalizada que aparece en el carrito. **Editar este diseño** recupera imágenes, textos, posiciones, tamaño, variante y cantidad.
+
+Desde administración, la bandeja **Pruebas para aprobación** permite subir el montaje revisado y enviarlo al cliente. El cliente lo ve dentro del seguimiento del pedido y puede aprobarlo o solicitar cambios por escrito. Cada respuesta actualiza el estado y conserva el historial.
+
 ## Despliegue
 
 1. Proveer PostgreSQL administrado y object storage S3-compatible.
@@ -165,11 +169,11 @@ Una capa seleccionada puede escalarse con tiradores grandes, deslizador, botones
 - El constructor administrativo crea productos, una variante inicial, inventario, galería y varias vistas de mockup. La edición/versionado posterior, variantes adicionales y reglas avanzadas de precio quedan para el siguiente milestone.
 - La interfaz actual configura una zona imprimible y una exclusión protegida por vista; el contrato de servidor ya admite hasta seis zonas por mockup.
 - El inventario de referencias de carcasas es una fotografía inicial, no una sincronización automática. Once referencias tienen plantilla calibrada; las restantes no pueden comprarse ni personalizarse hasta cargar su mockup exacto.
-- El editor trabaja una vista a la vez; conserva elementos por área, pero aún no incluye guías magnéticas ni deshacer/rehacer.
+- El editor trabaja una vista a la vez y conserva elementos por área; todavía no incluye guías magnéticas ni alerta automática de DPI.
 - La detección de cámara requiere un hueco transparente reconocible en el PNG y es una ayuda de calibración, no una garantía geométrica; el administrador debe confirmar la exclusión antes de publicar.
 - El editor puede mostrar un diseño extendido sobre toda la prenda cuando el administrador lo habilita; una impresión real que cruce costuras o mangas sigue requiriendo revisión técnica y un molde de sublimación integral compatible.
 - El almacenamiento local sirve para desarrollo de una sola instancia. Producción debe usar S3 y análisis antimalware asíncrono.
 - En rate limiting se usa memoria de proceso. Un despliegue distribuido debe conectar Redis/Upstash o la tabla preparada.
 - Impuestos y tarifas de transportadora son cero/fijos en V0.1; requieren reglas fiscales y carrier definidos por negocio.
 - Los adaptadores Wompi/Mercado Pago están implementados, pero las pruebas end-to-end con sus sandboxes requieren credenciales reales del comercio.
-- La aprobación tiene dominio y API; la bandeja visual completa de pruebas para cliente/diseñador es V0.2.
+- La aprobación ya incluye bandeja administrativa, versiones, comentarios y decisión del cliente; las notificaciones externas todavía requieren configurar un proveedor de correo o mensajería.

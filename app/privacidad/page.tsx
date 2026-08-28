@@ -1,0 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Política de privacidad", robots: { index: true, follow: true } };
+
+export default function PrivacyPage() {
+  return <article className="container legal-page"><p className="eyebrow">Privacidad</p><h1>Tratamos tus datos solo para atender tu pedido</h1><p>ArtPrint utiliza los datos de contacto, entrega, cuenta, pago y personalización para cotizar, producir, entregar y dar soporte a tus compras.</p><h2>Archivos e imágenes</h2><p>Las imágenes que subes se conservan como originales de producción y no se publican como contenido comercial sin tu autorización. Puedes solicitar su eliminación cuando no exista una obligación legal o contractual de conservarlas.</p><h2>Pagos</h2><p>Los datos completos de tarjeta no pasan por ArtPrint. El pago se realiza en la plataforma del proveedor configurado y la tienda recibe únicamente el estado necesario para confirmar el pedido.</p><h2>Seguridad y conservación</h2><p>Se aplican controles de acceso, validación de archivos y sesiones seguras. Conservamos la información durante el tiempo requerido para cumplir el pedido, atender garantías y cumplir obligaciones contables.</p><h2>Tus solicitudes</h2><p>Puedes pedir consulta, corrección o eliminación de tus datos mediante el canal de WhatsApp publicado en la página, indicando el correo de tu cuenta y el número de pedido.</p><p className="legal-updated">Última actualización: agosto de 2026.</p></article>;
+}

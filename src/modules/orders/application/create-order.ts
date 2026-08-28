@@ -23,12 +23,17 @@ export const createOrderSchema = z.object({
     phone: z.string().trim().regex(/^\+?[0-9\s-]{7,20}$/),
   }),
   shipping: z.object({
+    method: z.enum(["SHIPPING", "PICKUP"]),
     recipient: z.string().trim().min(2).max(100),
-    line1: z.string().trim().min(5).max(160),
+    line1: z.string().trim().min(5).max(160).optional(),
     line2: z.string().trim().max(160).optional(),
-    city: z.string().trim().min(2).max(100),
-    department: z.string().trim().min(2).max(100),
+    city: z.string().trim().min(2).max(100).optional(),
+    department: z.string().trim().min(2).max(100).optional(),
     notes: z.string().trim().max(500).optional(),
+  }).superRefine((shipping, context) => {
+    if (shipping.method === "SHIPPING" && (!shipping.line1 || !shipping.city || !shipping.department)) {
+      context.addIssue({ code: "custom", message: "Completa la dirección de entrega" });
+    }
   }),
 });
 
@@ -81,7 +86,7 @@ export async function createOrder(raw: CreateOrderInput, user: AuthenticatedUser
   const subtotal = pricedItems.reduce((sum, item) => sum + item.quote.subtotal, 0);
   const discountTotal = pricedItems.reduce((sum, item) => sum + item.quote.discountTotal, 0);
   const merchandiseTotal = subtotal - discountTotal;
-  const shippingTotal = shippingTotalForMerchandise(merchandiseTotal);
+  const shippingTotal = shippingTotalForMerchandise(merchandiseTotal, input.shipping.method);
   const grandTotal = merchandiseTotal + shippingTotal;
   const number = orderNumber();
   const provider = paymentProvider();
