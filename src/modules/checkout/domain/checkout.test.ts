@@ -45,5 +45,6 @@ describe("checkout domain", () => {
   it("applies the free-shipping threshold exactly", () => {
     expect(shippingTotalForMerchandise(149_999)).toBe(9_000);
     expect(shippingTotalForMerchandise(150_000)).toBe(0);
+    expect(shippingTotalForMerchandise(20_000, "PICKUP")).toBe(0);
   });
 });

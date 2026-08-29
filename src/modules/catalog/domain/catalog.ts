@@ -41,6 +41,7 @@ export type PrintAreaView = {
   realWidthCm: number;
   realHeightCm: number;
   allowOverflow?: boolean;
+  shape?: "RECTANGLE" | "ROUNDED" | "CIRCLE";
   mirrorMockup?: boolean;
   mockupImageUrl?: string;
   exclusions?: PrintExclusionView[];
@@ -69,10 +70,13 @@ export type ProductView = {
   printAreas: PrintAreaView[];
   highlights: string[];
   mockupStatus?: "CALIBRATED" | "REFERENCE_ONLY";
+  readyMade?: boolean;
+  designTheme?: string;
+  designTags?: string[];
 };
 
 export interface CatalogRepository {
-  listProducts(filters?: { category?: string; query?: string }): Promise<ProductView[]>;
+  listProducts(filters?: { category?: string; query?: string; readyMade?: boolean; theme?: string }): Promise<ProductView[]>;
   findBySlug(slug: string): Promise<ProductView | null>;
   findByVariantId(variantId: string): Promise<ProductView | null>;
   listCategories(): Promise<ProductCategory[]>;

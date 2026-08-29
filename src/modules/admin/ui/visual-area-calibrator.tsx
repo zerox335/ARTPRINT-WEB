@@ -7,7 +7,7 @@ import { resizeVisualRect, type VisualRect, type VisualResizeMode } from "@/src/
 
 type DragState = { pointerId: number; target: "area" | "exclusion"; mode: VisualResizeMode; startX: number; startY: number; rect: VisualRect };
 
-function Rectangle({ kind, value, radius, onChange, onStart }: { kind: "area" | "exclusion"; value: VisualRect; radius?: number; onChange: (value: VisualRect) => void; onStart: (event: PointerEvent<HTMLElement>, target: "area" | "exclusion", mode: VisualResizeMode) => void }) {
+function Rectangle({ kind, value, radius, shape = "RECTANGLE", onChange, onStart }: { kind: "area" | "exclusion"; value: VisualRect; radius?: number; shape?: "RECTANGLE" | "ROUNDED" | "CIRCLE"; onChange: (value: VisualRect) => void; onStart: (event: PointerEvent<HTMLElement>, target: "area" | "exclusion", mode: VisualResizeMode) => void }) {
   const label = kind === "area" ? "Área editable" : "Cámara protegida";
   function moveWithKeyboard(event: KeyboardEvent<HTMLDivElement>) {
     if (!event.key.startsWith("Arrow")) return;
@@ -19,7 +19,7 @@ function Rectangle({ kind, value, radius, onChange, onStart }: { kind: "area" | 
   }
   return <div
     className={`visual-calibration-rect visual-calibration-${kind}`}
-    style={{ left: `${value.x}%`, top: `${value.y}%`, width: `${value.width}%`, height: `${value.height}%`, ...(kind === "exclusion" ? { borderRadius: `${radius ?? 0}px` } : {}) }}
+    style={{ left: `${value.x}%`, top: `${value.y}%`, width: `${value.width}%`, height: `${value.height}%`, borderRadius: kind === "exclusion" ? `${radius ?? 0}px` : shape === "CIRCLE" ? "50%" : shape === "ROUNDED" ? "20px" : undefined }}
     role="button"
     tabIndex={0}
     aria-label={`${label}. Arrastra para mover; usa las esquinas para cambiar el tamaño.`}
@@ -31,7 +31,7 @@ function Rectangle({ kind, value, radius, onChange, onStart }: { kind: "area" | 
   </div>;
 }
 
-export function VisualAreaCalibrator({ src, alt, width, height, area, onAreaChange, exclusion, exclusionRadius, onExclusionChange }: { src: string; alt: string; width: number; height: number; area: VisualRect; onAreaChange: (value: VisualRect) => void; exclusion?: VisualRect; exclusionRadius?: number; onExclusionChange?: (value: VisualRect) => void }) {
+export function VisualAreaCalibrator({ src, alt, width, height, area, shape = "RECTANGLE", onAreaChange, exclusion, exclusionRadius, onExclusionChange }: { src: string; alt: string; width: number; height: number; area: VisualRect; shape?: "RECTANGLE" | "ROUNDED" | "CIRCLE"; onAreaChange: (value: VisualRect) => void; exclusion?: VisualRect; exclusionRadius?: number; onExclusionChange?: (value: VisualRect) => void }) {
   const previewRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
 
@@ -62,7 +62,7 @@ export function VisualAreaCalibrator({ src, alt, width, height, area, onAreaChan
     <div className="visual-calibrator-help"><Scaling size={17} /><span><strong>Ajuste visual con el mouse</strong>Arrastra cada cuadro para moverlo y sus esquinas para cambiar el tamaño.</span></div>
     <div ref={previewRef} className="admin-mockup-preview case-activation-preview visual-calibrator" style={{ aspectRatio: `${width}/${height}` }} onPointerMove={updateDrag} onPointerUp={finishDrag} onPointerCancel={finishDrag}>
       <Image src={src} alt={alt} fill sizes="520px" draggable={false} />
-      <Rectangle kind="area" value={area} onChange={onAreaChange} onStart={startDrag} />
+      <Rectangle kind="area" value={area} shape={shape} onChange={onAreaChange} onStart={startDrag} />
       {exclusion && onExclusionChange && <Rectangle kind="exclusion" value={exclusion} radius={exclusionRadius} onChange={onExclusionChange} onStart={startDrag} />}
     </div>
   </div>;

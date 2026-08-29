@@ -115,16 +115,18 @@ export const demoProducts: ProductView[] = [
 ];
 
 export class DemoCatalogRepository implements CatalogRepository {
-  async listProducts(filters?: { category?: string; query?: string }) {
+  async listProducts(filters?: { category?: string; query?: string; readyMade?: boolean; theme?: string }) {
     const query = filters?.query?.trim().toLocaleLowerCase("es");
     return demoProducts.filter((product) => {
       if (product.mockupStatus === "REFERENCE_ONLY") return false;
       const inCategory = !filters?.category || product.categorySlug === filters.category;
+      const matchesReadyMade = filters?.readyMade === undefined || Boolean(product.readyMade) === filters.readyMade;
+      const matchesTheme = !filters?.theme || product.designTheme === filters.theme;
       const matchesQuery =
         !query ||
         product.name.toLocaleLowerCase("es").includes(query) ||
         product.shortDescription.toLocaleLowerCase("es").includes(query);
-      return inCategory && matchesQuery;
+      return inCategory && matchesReadyMade && matchesTheme && matchesQuery;
     });
   }
 

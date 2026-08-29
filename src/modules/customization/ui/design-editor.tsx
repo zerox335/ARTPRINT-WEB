@@ -2,18 +2,60 @@
 
 import Konva from "konva";
 import NextImage from "next/image";
-import { Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer } from "react-konva";
-import { AlignCenter, BringToFront, Copy, Frame, ImagePlus, Layers3, Minus, MousePointer2, Palette, Plus, RotateCcw, SendToBack, Sparkles, Trash2, Type } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Ellipse, Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer } from "react-konva";
+import { AlignCenter, BringToFront, Copy, Frame, ImagePlus, Layers3, Minus, MousePointer2, Palette, Plus, Redo2, RotateCcw, SendToBack, Sparkles, Trash2, Type, Undo2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from "react";
 import type { PrintAreaView, ProductView } from "@/src/modules/catalog/domain/catalog";
 import type { CustomizationSpec } from "@/src/modules/customization/domain/customization";
-import { cylindricalProjection } from "@/src/modules/customization/domain/cylindrical-projection";
 
 type EditorElement =
   | { id: string; type: "TEXT"; printAreaId: string; x: number; y: number; width: number; height: number; scaleX: number; scaleY: number; rotation: number; layerIndex: number; content: string; fontFamily: "Inter" | "Arial" | "Georgia" | "Courier New" | "Trebuchet MS"; fill: string; align: "left" | "center" | "right" }
   | { id: string; type: "IMAGE"; printAreaId: string; x: number; y: number; width: number; height: number; scaleX: number; scaleY: number; rotation: number; layerIndex: number; assetId: string; originalStorageKey: string; sourceUrl: string };
 
 type SampleTemplate = { id: string; name: string; preview: string; content: string; fontFamily: Extract<EditorElement, { type: "TEXT" }>["fontFamily"]; fill: string; background: string };
+
+type EditorSnapshot = {
+  elements: CustomizationSpec["elements"];
+  previewDataUrl: string;
+  width: number;
+  height: number;
+};
+
+type HistoryState = { past: EditorElement[][]; present: EditorElement[]; future: EditorElement[][] };
+type HistoryAction =
+  | { type: "APPLY"; update: (current: EditorElement[]) => EditorElement[] }
+  | { type: "UNDO" }
+  | { type: "REDO" };
+
+function historyReducer(state: HistoryState, action: HistoryAction): HistoryState {
+  if (action.type === "UNDO") {
+    const previous = state.past.at(-1);
+    return previous ? { past: state.past.slice(0, -1), present: previous, future: [state.present, ...state.future].slice(0, 50) } : state;
+  }
+  if (action.type === "REDO") {
+    const next = state.future[0];
+    return next ? { past: [...state.past, state.present].slice(-50), present: next, future: state.future.slice(1) } : state;
+  }
+  const next = action.update(state.present);
+  if (next === state.present) return state;
+  return { past: [...state.past, state.present].slice(-50), present: next, future: [] };
+}
+
+function escapeXml(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
+}
+
+function persistedElements(elements: readonly EditorElement[]): CustomizationSpec["elements"] {
+  return elements.map((element) => element.type === "IMAGE"
+    ? Object.fromEntries(Object.entries(element).filter(([key]) => key !== "sourceUrl")) as CustomizationSpec["elements"][number]
+    : element);
+}
+
+function hydrateElements(elements: readonly CustomizationSpec["elements"][number][]): EditorElement[] {
+  return elements.map((element) => element.type === "IMAGE"
+    ? { ...element, sourceUrl: `/api/uploads/${encodeURIComponent(element.assetId)}` }
+    : element);
+}
 
 const sampleTemplates: Record<"carcasas" | "textiles" | "general", SampleTemplate[]> = {
   carcasas: [
@@ -63,18 +105,6 @@ function EditorImage({ element, selected, onSelect, onChange, bounds }: { elemen
   return <>{image && <KonvaImage ref={nodeRef} image={image} {...element} draggable dragBoundFunc={(position) => ({ x: Math.max(bounds.x, Math.min(bounds.x + bounds.width - 20, position.x)), y: Math.max(bounds.y, Math.min(bounds.y + bounds.height - 20, position.y)) })} onClick={onSelect} onTap={onSelect} onDragEnd={(event) => onChange({ x: event.target.x(), y: event.target.y() })} onTransformEnd={() => { const node = nodeRef.current; if (node) onChange({ x: node.x(), y: node.y(), scaleX: Math.max(.1, node.scaleX()), scaleY: Math.max(.1, node.scaleY()), rotation: node.rotation() }); }} />}{selected && <Transformer ref={transformerRef} rotateEnabled flipEnabled={false} anchorSize={20} borderStrokeWidth={2} rotateAnchorOffset={32} boundBoxFunc={(oldBox, newBox) => newBox.width < 25 || newBox.height < 25 ? oldBox : newBox} />}</>;
 }
 
-function DrinkwareEditorImage({ element, selected, onSelect, onChange, bounds }: { element: Extract<EditorElement, { type: "IMAGE" }>; selected: boolean; onSelect: () => void; onChange: (updates: Partial<EditorElement>) => void; bounds: { x: number; y: number; width: number; height: number } }) {
-  const image = useHtmlImage(element.sourceUrl);
-  const nodeRef = useRef<Konva.Group>(null);
-  const transformerRef = useRef<Konva.Transformer>(null);
-  const strips = useMemo(() => image ? cylindricalProjection(image.naturalWidth, element.width, element.height) : [], [element.height, element.width, image]);
-  useEffect(() => { if (selected && image && nodeRef.current && transformerRef.current) { transformerRef.current.nodes([nodeRef.current]); transformerRef.current.getLayer()?.batchDraw(); } }, [image, selected]);
-
-  return <>{image && <Group ref={nodeRef} x={element.x} y={element.y} scaleX={element.scaleX} scaleY={element.scaleY} rotation={element.rotation} draggable dragBoundFunc={(position) => ({ x: Math.max(bounds.x, Math.min(bounds.x + bounds.width - 20, position.x)), y: Math.max(bounds.y, Math.min(bounds.y + bounds.height - 20, position.y)) })} onClick={onSelect} onTap={onSelect} onDragEnd={(event) => onChange({ x: event.target.x(), y: event.target.y() })} onTransformEnd={() => { const node = nodeRef.current; if (node) onChange({ x: node.x(), y: node.y(), scaleX: Math.max(.1, node.scaleX()), scaleY: Math.max(.1, node.scaleY()), rotation: node.rotation() }); }}>
-    {strips.map((strip, index) => <KonvaImage key={index} image={image} crop={{ x: strip.sourceX, y: 0, width: strip.sourceWidth, height: image.naturalHeight }} x={strip.x} y={strip.y} width={strip.width + .7} height={strip.height} perfectDrawEnabled={false} />)}
-  </Group>}{selected && <Transformer ref={transformerRef} rotateEnabled={false} flipEnabled={false} keepRatio={false} anchorSize={20} borderStrokeWidth={1.5} enabledAnchors={["top-left", "top-right", "bottom-left", "bottom-right"]} boundBoxFunc={(oldBox, newBox) => newBox.width < 40 || newBox.height < 40 ? oldBox : newBox} />}</>;
-}
-
 function EditorText({ element, selected, onSelect, onChange, bounds }: { element: Extract<EditorElement, { type: "TEXT" }>; selected: boolean; onSelect: () => void; onChange: (updates: Partial<EditorElement>) => void; bounds: { x: number; y: number; width: number; height: number } }) {
   const nodeRef = useRef<Konva.Text>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -82,12 +112,25 @@ function EditorText({ element, selected, onSelect, onChange, bounds }: { element
   return <><Text ref={nodeRef} {...element} fontSize={30} fontStyle="bold" verticalAlign="middle" draggable dragBoundFunc={(position) => ({ x: Math.max(bounds.x, Math.min(bounds.x + bounds.width - 20, position.x)), y: Math.max(bounds.y, Math.min(bounds.y + bounds.height - 20, position.y)) })} onClick={onSelect} onTap={onSelect} onDragEnd={(event) => onChange({ x: event.target.x(), y: event.target.y() })} onTransformEnd={() => { const node = nodeRef.current; if (node) onChange({ x: node.x(), y: node.y(), scaleX: Math.max(.1, node.scaleX()), scaleY: Math.max(.1, node.scaleY()), rotation: node.rotation() }); }} />{selected && <Transformer ref={transformerRef} flipEnabled={false} anchorSize={20} borderStrokeWidth={2} rotateAnchorOffset={32} />}</>;
 }
 
-export default function DesignEditor({ product, area, variantColor, previewOnly = false, onChange }: { product: ProductView; area: PrintAreaView; variantColor?: string; previewOnly?: boolean; onChange: (elements: CustomizationSpec["elements"]) => void }) {
+export default function DesignEditor({ product, area, variantColor, initialElements = [], draftKey, previewOnly = false, onChange }: { product: ProductView; area: PrintAreaView; variantColor?: string; initialElements?: CustomizationSpec["elements"]; draftKey: string; previewOnly?: boolean; onChange: (snapshot: EditorSnapshot) => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const localObjectUrls = useRef<string[]>([]);
   const [width, setWidth] = useState(600);
   const height = Math.round(width * 1.125);
-  const [elements, setElements] = useState<EditorElement[]>([]);
+  const [history, dispatchHistory] = useReducer(historyReducer, undefined, (): HistoryState => {
+    if (initialElements.length) return { past: [], present: hydrateElements(initialElements), future: [] };
+    try {
+      const saved = window.localStorage.getItem(draftKey);
+      if (saved) {
+        const parsed = JSON.parse(saved) as { elements?: CustomizationSpec["elements"] };
+        if (parsed.elements?.length) return { past: [], present: hydrateElements(parsed.elements), future: [] };
+      }
+    } catch {
+      window.localStorage.removeItem(draftKey);
+    }
+    return { past: [], present: [], future: [] };
+  });
+  const elements = history.present;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [text, setText] = useState("TU IDEA");
   const [font, setFont] = useState<Extract<EditorElement, { type: "TEXT" }>["fontFamily"]>("Inter");
@@ -96,6 +139,8 @@ export default function DesignEditor({ product, area, variantColor, previewOnly 
   const [uploadError, setUploadError] = useState("");
   const [activeTool, setActiveTool] = useState<"IMAGE" | "TEXT" | "DESIGNS" | "LAYERS">("IMAGE");
   const isDrinkware = product.categorySlug === "mugs-termos";
+
+  const applyElements = useCallback((update: (current: EditorElement[]) => EditorElement[]) => dispatchHistory({ type: "APPLY", update }), []);
 
   useEffect(() => {
     if (!wrapRef.current) return;
@@ -116,19 +161,14 @@ export default function DesignEditor({ product, area, variantColor, previewOnly 
     height: (exclusion.height / 100) * height,
     cornerRadius: ((exclusion.radius ?? 0) / 100) * width,
   })), [area.exclusions, width, height]);
+  const tracePrintableArea = useCallback((context: Konva.Context | CanvasRenderingContext2D) => {
+    context.beginPath();
+    if (area.shape === "CIRCLE") context.ellipse(areaRect.x + areaRect.width / 2, areaRect.y + areaRect.height / 2, areaRect.width / 2, areaRect.height / 2, 0, 0, Math.PI * 2);
+    else if (area.shape === "ROUNDED") context.roundRect(areaRect.x, areaRect.y, areaRect.width, areaRect.height, Math.min(24, areaRect.width / 5, areaRect.height / 5));
+    else context.rect(areaRect.x, areaRect.y, areaRect.width, areaRect.height);
+  }, [area.shape, areaRect]);
   const clipPrintableArea = useMemo(() => (context: Konva.Context) => {
-    if (isDrinkware) {
-      const { x, y, width: areaWidth, height: areaHeight } = areaRect;
-      const curve = Math.min(areaHeight * .08, 18);
-      context.beginPath();
-      context.moveTo(x, y + curve);
-      context.bezierCurveTo(x + areaWidth * .22, y - curve * .35, x + areaWidth * .78, y - curve * .35, x + areaWidth, y + curve);
-      context.lineTo(x + areaWidth, y + areaHeight - curve);
-      context.bezierCurveTo(x + areaWidth * .78, y + areaHeight + curve * .35, x + areaWidth * .22, y + areaHeight + curve * .35, x, y + areaHeight - curve);
-      context.closePath();
-    } else {
-      context.rect(areaRect.x, areaRect.y, areaRect.width, areaRect.height);
-    }
+    tracePrintableArea(context);
     for (const exclusion of exclusionRects) {
       context.moveTo(exclusion.x, exclusion.y);
       context.lineTo(exclusion.x, exclusion.y + exclusion.height);
@@ -137,16 +177,34 @@ export default function DesignEditor({ product, area, variantColor, previewOnly 
       context.closePath();
     }
     return ["evenodd"] as [CanvasFillRule];
-  }, [areaRect, exclusionRects, isDrinkware]);
+  }, [exclusionRects, tracePrintableArea]);
+
+  const createPreview = useCallback((cleanElements: CustomizationSpec["elements"]) => {
+    const mockup = new URL(area.mockupImageUrl ?? product.imageUrl, window.location.origin).toString();
+    const clipId = `print-${product.id.replaceAll(/[^a-zA-Z0-9_-]/g, "")}`;
+    const clipShape = area.shape === "CIRCLE" ? `<ellipse cx="${areaRect.x + areaRect.width / 2}" cy="${areaRect.y + areaRect.height / 2}" rx="${areaRect.width / 2}" ry="${areaRect.height / 2}"/>` : area.shape === "ROUNDED" ? `<rect x="${areaRect.x}" y="${areaRect.y}" width="${areaRect.width}" height="${areaRect.height}" rx="${Math.min(24, areaRect.width / 5, areaRect.height / 5)}"/>` : `<rect x="${areaRect.x}" y="${areaRect.y}" width="${areaRect.width}" height="${areaRect.height}"/>`;
+    const layers = cleanElements.filter((element) => element.printAreaId === area.id).sort((a, b) => a.layerIndex - b.layerIndex).map((element) => {
+      const transform = `translate(${element.x} ${element.y}) rotate(${element.rotation}) scale(${element.scaleX} ${element.scaleY})`;
+      if (element.type === "IMAGE") {
+        const source = new URL(`/api/uploads/${encodeURIComponent(element.assetId)}`, window.location.origin).toString();
+        return `<image href="${escapeXml(source)}" width="${element.width}" height="${element.height}" transform="${transform}" preserveAspectRatio="none"/>`;
+      }
+      const lines = element.content.split("\n");
+      const tspans = lines.map((line, index) => `<tspan x="${element.width / 2}" dy="${index ? 32 : 0}">${escapeXml(line)}</tspan>`).join("");
+      return `<g transform="${transform}"><text x="${element.width / 2}" y="${Math.max(30, element.height / 2)}" text-anchor="middle" dominant-baseline="middle" font-family="${escapeXml(element.fontFamily)}" font-size="30" font-weight="700" fill="${element.fill}">${tspans}</text></g>`;
+    }).join("");
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><clipPath id="${clipId}">${clipShape}</clipPath></defs><image href="${escapeXml(mockup)}" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice"/><g clip-path="url(#${clipId})" opacity=".96">${layers}</g></svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }, [area.id, area.mockupImageUrl, area.shape, areaRect, height, product.id, product.imageUrl, width]);
+
   useEffect(() => {
-    onChange(elements.map((element) => {
-      if (element.type === "TEXT") return element;
-      return Object.fromEntries(Object.entries(element).filter(([key]) => key !== "sourceUrl"));
-    }) as CustomizationSpec["elements"]);
-  }, [elements, onChange]);
+    const clean = persistedElements(elements);
+    window.localStorage.setItem(draftKey, JSON.stringify({ elements: clean, updatedAt: new Date().toISOString() }));
+    onChange({ elements: clean, previewDataUrl: createPreview(clean), width, height });
+  }, [createPreview, draftKey, elements, height, onChange, width]);
   function addText() {
     const id = crypto.randomUUID();
-    setElements((current) => [...current, { id, type: "TEXT", printAreaId: area.id, x: areaRect.x + 16, y: areaRect.y + areaRect.height / 2 - 25, width: Math.max(100, areaRect.width - 32), height: 55, scaleX: 1, scaleY: 1, rotation: 0, layerIndex: current.length, content: text || "TU IDEA", fontFamily: font, fill, align: "center" }]);
+    applyElements((current) => [...current, { id, type: "TEXT", printAreaId: area.id, x: areaRect.x + 16, y: areaRect.y + areaRect.height / 2 - 25, width: Math.max(100, areaRect.width - 32), height: 55, scaleX: 1, scaleY: 1, rotation: 0, layerIndex: current.length, content: text || "TU IDEA", fontFamily: font, fill, align: "center" }]);
     setSelectedId(id);
   }
 
@@ -170,37 +228,33 @@ export default function DesignEditor({ product, area, variantColor, previewOnly 
         asset = data.asset;
       }
       const naturalRatio = (asset.width ?? 1) / (asset.height ?? 1);
-      const targetWidth = isDrinkware ? areaRect.width : Math.min(areaRect.width * .72, 180);
-      const targetHeight = isDrinkware ? areaRect.height : targetWidth / naturalRatio;
+      const targetWidth = Math.min(areaRect.width * (isDrinkware ? .82 : .72), 240);
+      const targetHeight = targetWidth / naturalRatio;
       const id = crypto.randomUUID();
       localObjectUrls.current.push(sourceUrl);
-      setElements((current) => [...current, { id, type: "IMAGE", printAreaId: area.id, x: areaRect.x + (areaRect.width - targetWidth) / 2, y: areaRect.y + (areaRect.height - targetHeight) / 2, width: targetWidth, height: targetHeight, scaleX: 1, scaleY: 1, rotation: 0, layerIndex: current.length, assetId: asset.id, originalStorageKey: previewOnly ? "preview-only" : "server-canonicalized", sourceUrl }]);
+      applyElements((current) => [...current, { id, type: "IMAGE", printAreaId: area.id, x: areaRect.x + (areaRect.width - targetWidth) / 2, y: areaRect.y + (areaRect.height - targetHeight) / 2, width: targetWidth, height: targetHeight, scaleX: 1, scaleY: 1, rotation: 0, layerIndex: current.length, assetId: asset.id, originalStorageKey: previewOnly ? "preview-only" : "server-canonicalized", sourceUrl }]);
       setSelectedId(id);
     } catch (error) {
       URL.revokeObjectURL(sourceUrl);
-      setUploadError((error as Error).message);
+      setUploadError(`${(error as Error).message}. Puedes intentarlo nuevamente sin perder tu diseño.`);
     } finally { setUploading(false); }
   }
 
-  function updateElement(id: string, updates: Partial<EditorElement>) { setElements((current) => current.map((element) => element.id === id ? { ...element, ...updates } as EditorElement : element)); }
-  function removeSelected() { if (selectedId) { setElements((current) => current.filter((element) => element.id !== selectedId)); setSelectedId(null); } }
-  function duplicateSelected() { const selected = elements.find((element) => element.id === selectedId); if (!selected) return; const id = crypto.randomUUID(); setElements((current) => [...current, { ...selected, id, x: selected.x + 12, y: selected.y + 12, layerIndex: current.length }]); setSelectedId(id); }
-  function moveLayer(direction: "front" | "back") { if (!selectedId) return; setElements((current) => { const selected = current.find((element) => element.id === selectedId); if (!selected) return current; const rest = current.filter((element) => element.id !== selectedId); const ordered = direction === "front" ? [...rest, selected] : [selected, ...rest]; return ordered.map((element, index) => ({ ...element, layerIndex: index })); }); }
+  function updateElement(id: string, updates: Partial<EditorElement>) { applyElements((current) => current.map((element) => element.id === id ? { ...element, ...updates } as EditorElement : element)); }
+  function removeSelected() { if (selectedId) { applyElements((current) => current.filter((element) => element.id !== selectedId)); setSelectedId(null); } }
+  function duplicateSelected() { const selected = elements.find((element) => element.id === selectedId); if (!selected) return; const id = crypto.randomUUID(); applyElements((current) => [...current, { ...selected, id, x: selected.x + 12, y: selected.y + 12, layerIndex: current.length }]); setSelectedId(id); }
+  function moveLayer(direction: "front" | "back") { if (!selectedId) return; applyElements((current) => { const selected = current.find((element) => element.id === selectedId); if (!selected) return current; const rest = current.filter((element) => element.id !== selectedId); const ordered = direction === "front" ? [...rest, selected] : [selected, ...rest]; return ordered.map((element, index) => ({ ...element, layerIndex: index })); }); }
   function centerSelected() { const selected = elements.find((element) => element.id === selectedId); if (selected) updateElement(selected.id, { x: areaRect.x + (areaRect.width - selected.width * selected.scaleX) / 2, y: areaRect.y + (areaRect.height - selected.height * selected.scaleY) / 2 }); }
   function setSelectedScale(percent: number) { if (!selectedId) return; const scale = Math.min(12, Math.max(.1, percent / 100)); updateElement(selectedId, { scaleX: scale, scaleY: scale }); }
   function fitSelected(mode: "contain" | "cover") {
     const selected = elements.find((element) => element.id === selectedId && element.printAreaId === area.id); if (!selected) return;
-    if (isDrinkware && selected.type === "IMAGE") {
-      updateElement(selected.id, { x: areaRect.x, y: areaRect.y, width: areaRect.width, height: areaRect.height, scaleX: 1, scaleY: 1, rotation: 0 });
-      return;
-    }
     const horizontal = areaRect.width / selected.width; const vertical = areaRect.height / selected.height;
     const scale = Math.min(12, Math.max(.1, mode === "contain" ? Math.min(horizontal, vertical) : Math.max(horizontal, vertical)));
     updateElement(selected.id, { scaleX: scale, scaleY: scale, x: areaRect.x + (areaRect.width - selected.width * scale) / 2, y: areaRect.y + (areaRect.height - selected.height * scale) / 2 });
   }
   function applySample(template: SampleTemplate) {
     const id = crypto.randomUUID(); const width = Math.max(90, areaRect.width * .82); const height = Math.min(120, Math.max(65, areaRect.height * .28));
-    setElements((current) => [...current, { id, type: "TEXT", printAreaId: area.id, x: areaRect.x + (areaRect.width - width) / 2, y: areaRect.y + (areaRect.height - height) / 2, width, height, scaleX: 1, scaleY: 1, rotation: 0, layerIndex: current.length, content: template.content, fontFamily: template.fontFamily, fill: template.fill, align: "center" }]);
+    applyElements((current) => [...current, { id, type: "TEXT", printAreaId: area.id, x: areaRect.x + (areaRect.width - width) / 2, y: areaRect.y + (areaRect.height - height) / 2, width, height, scaleX: 1, scaleY: 1, rotation: 0, layerIndex: current.length, content: template.content, fontFamily: template.fontFamily, fill: template.fill, align: "center" }]);
     setText(template.content); setFont(template.fontFamily); setFill(template.fill); setSelectedId(id);
   }
 
@@ -212,17 +266,11 @@ export default function DesignEditor({ product, area, variantColor, previewOnly 
   const isColorableTextile = product.categorySlug === "textiles" && Boolean(variantColor);
   const textileMask = area.mockupImageUrl ?? product.imageUrl;
   const textileColorStyle = isColorableTextile ? { backgroundColor: variantColor, maskImage: `url(${textileMask})`, WebkitMaskImage: `url(${textileMask})`, ...(area.mirrorMockup ? { transform: "scaleX(-1)" } : {}) } as CSSProperties : undefined;
-  const drinkwarePreviewStyle = isDrinkware ? {
-    "--print-left": `${area.x}%`,
-    "--print-top": `${area.y}%`,
-    "--print-width": `${area.width}%`,
-    "--print-height": `${area.height}%`,
-  } as CSSProperties : undefined;
   const scaleControl = <div className="element-scale-control"><span>Tamaño</span><button type="button" onClick={() => setSelectedScale(selectedScale - 10)} disabled={!selectedElement || selectedScale <= 10} aria-label="Reducir elemento"><Minus size={15} /></button><input type="range" min="10" max="1200" step="5" value={selectedScale} disabled={!selectedElement} onChange={(event) => setSelectedScale(Number(event.target.value))} aria-label="Tamaño del elemento seleccionado" /><output>{selectedElement ? `${selectedScale}%` : "—"}</output><button type="button" onClick={() => setSelectedScale(selectedScale + 10)} disabled={!selectedElement || selectedScale >= 1200} aria-label="Agrandar elemento"><Plus size={15} /></button></div>;
-  const fitControls = isDrinkware ? <div className="element-fit-actions"><button type="button" disabled={!selectedElement || selectedElement.type !== "IMAGE"} onClick={() => fitSelected("contain")}><Sparkles size={15} /> Adaptar al vaso</button></div> : <div className="element-fit-actions"><button type="button" disabled={!selectedElement} onClick={() => fitSelected("contain")}><Frame size={15} /> Ajustar completo</button><button type="button" disabled={!selectedElement} onClick={() => fitSelected("cover")}><Sparkles size={15} /> Rellenar área</button></div>;
+  const fitControls = <div className="element-fit-actions"><button type="button" disabled={!selectedElement} onClick={() => fitSelected("contain")}><Frame size={15} /> Ajustar completo</button><button type="button" disabled={!selectedElement} onClick={() => fitSelected("cover")}><Sparkles size={15} /> Rellenar área</button></div>;
   const selectedTextEditor = selectedElement?.type === "TEXT" ? <div className="selected-text-editor"><label>Editar texto<input value={selectedElement.content} maxLength={300} onChange={(event) => updateElement(selectedElement.id, { content: event.target.value })} /></label><label>Fuente<select value={selectedElement.fontFamily} onChange={(event) => updateElement(selectedElement.id, { fontFamily: event.target.value as typeof selectedElement.fontFamily })}><option>Inter</option><option>Arial</option><option>Georgia</option><option>Courier New</option><option>Trebuchet MS</option></select></label><label>Color<input type="color" value={selectedElement.fill} onChange={(event) => updateElement(selectedElement.id, { fill: event.target.value })} /></label></div> : null;
   const samples = <div className="sample-design-grid">{templates.map((template) => <button type="button" key={template.id} onClick={() => applySample(template)} aria-label={`Usar diseño ${template.name}`}><span style={{ background: template.background, color: template.fill }}>{template.preview}</span><strong>{template.name}</strong><small>Usar y editar</small></button>)}</div>;
-  const layerTools = <div className="layer-tools"><button onClick={duplicateSelected} disabled={!selectedElement} title="Duplicar"><Copy size={17} /></button><button onClick={centerSelected} disabled={!selectedElement} title="Centrar"><AlignCenter size={17} /></button><button onClick={() => moveLayer("front")} disabled={!selectedElement} title="Traer al frente"><BringToFront size={17} /></button><button onClick={() => moveLayer("back")} disabled={!selectedElement} title="Enviar atrás"><SendToBack size={17} /></button><button onClick={() => selectedElement && updateElement(selectedElement.id, { rotation: 0, scaleX: 1, scaleY: 1 })} disabled={!selectedElement} title="Restablecer transformación"><RotateCcw size={17} /></button><button className="danger-tool" onClick={removeSelected} disabled={!selectedElement} title="Eliminar"><Trash2 size={17} /></button></div>;
+  const layerTools = <div className="layer-tools"><button type="button" onClick={() => dispatchHistory({ type: "UNDO" })} disabled={!history.past.length} title="Deshacer"><Undo2 size={17} /></button><button type="button" onClick={() => dispatchHistory({ type: "REDO" })} disabled={!history.future.length} title="Rehacer"><Redo2 size={17} /></button><button type="button" onClick={duplicateSelected} disabled={!selectedElement} title="Duplicar"><Copy size={17} /></button><button type="button" onClick={centerSelected} disabled={!selectedElement} title="Centrar"><AlignCenter size={17} /></button><button type="button" onClick={() => moveLayer("front")} disabled={!selectedElement} title="Traer al frente"><BringToFront size={17} /></button><button type="button" onClick={() => moveLayer("back")} disabled={!selectedElement} title="Enviar atrás"><SendToBack size={17} /></button><button type="button" onClick={() => selectedElement && updateElement(selectedElement.id, { rotation: 0, scaleX: 1, scaleY: 1 })} disabled={!selectedElement} title="Restablecer transformación"><RotateCcw size={17} /></button><button type="button" className="danger-tool" onClick={removeSelected} disabled={!selectedElement} title="Eliminar"><Trash2 size={17} /></button></div>;
   const canvas = <>
     {uploadError && <p className="inline-alert" role="alert">{uploadError}</p>}
     <div className={`canvas-shell${isColorableTextile ? " textile-canvas" : ""}${isDrinkware ? " drinkware-canvas" : ""}`} ref={wrapRef}>
@@ -230,13 +278,14 @@ export default function DesignEditor({ product, area, variantColor, previewOnly 
       {textileColorStyle && <span className="textile-color-layer" style={textileColorStyle} aria-hidden="true" />}
       <Stage width={width} height={height} className="konva-stage" onMouseDown={(event) => { if (event.target === event.target.getStage()) setSelectedId(null); }} onTouchStart={(event) => { if (event.target === event.target.getStage()) setSelectedId(null); }}>
         <Layer listening={false}>
-          {!isDrinkware && <Rect {...areaRect} fill="rgba(128,109,240,.06)" stroke="#806df0" strokeWidth={2} dash={[10, 8]} />}
+          {area.shape === "CIRCLE" ? <Ellipse x={areaRect.x + areaRect.width / 2} y={areaRect.y + areaRect.height / 2} radiusX={areaRect.width / 2} radiusY={areaRect.height / 2} fill="rgba(128,109,240,.06)" stroke="#806df0" strokeWidth={2} dash={[10, 8]} /> : <Rect {...areaRect} cornerRadius={area.shape === "ROUNDED" ? Math.min(24, areaRect.width / 5, areaRect.height / 5) : 0} fill="rgba(128,109,240,.06)" stroke="#806df0" strokeWidth={2} dash={[10, 8]} />}
           {exclusionRects.map((exclusion) => <Rect key={exclusion.id} {...exclusion} fill="rgba(255,86,116,.13)" stroke="#ff5674" strokeWidth={2} dash={[6, 5]} />)}
         </Layer>
-        <Layer clipFunc={area.allowOverflow ? undefined : clipPrintableArea}>{visible.map((element) => element.type === "IMAGE" ? isDrinkware ? <DrinkwareEditorImage key={element.id} element={element} selected={selectedId === element.id} onSelect={() => setSelectedId(element.id)} onChange={(updates) => updateElement(element.id, updates)} bounds={movementBounds} /> : <EditorImage key={element.id} element={element} selected={selectedId === element.id} onSelect={() => setSelectedId(element.id)} onChange={(updates) => updateElement(element.id, updates)} bounds={movementBounds} /> : <EditorText key={element.id} element={element} selected={selectedId === element.id} onSelect={() => setSelectedId(element.id)} onChange={(updates) => updateElement(element.id, updates)} bounds={movementBounds} />)}</Layer>
+        <Layer>
+          <Group clipFunc={area.allowOverflow ? undefined : clipPrintableArea}>{visible.map((element) => element.type === "IMAGE" ? <EditorImage key={element.id} element={element} selected={selectedId === element.id} onSelect={() => setSelectedId(element.id)} onChange={(updates) => updateElement(element.id, updates)} bounds={movementBounds} /> : <EditorText key={element.id} element={element} selected={selectedId === element.id} onSelect={() => setSelectedId(element.id)} onChange={(updates) => updateElement(element.id, updates)} bounds={movementBounds} />)}</Group>
+        </Layer>
       </Stage>
-      {isDrinkware && <span className="drinkware-curvature" style={drinkwarePreviewStyle} aria-hidden="true" />}
-      <span className="print-area-label">{isDrinkware ? "Vista envolvente" : area.name} · {area.realWidthCm} × {area.realHeightCm} cm{area.allowOverflow ? " · edición libre" : ""}{exclusionRects.length ? " · cámara protegida" : ""}</span>
+      <span className="print-area-label">{isDrinkware ? "Área de impresión frontal" : area.name} · {area.shape === "CIRCLE" ? "circular · " : area.shape === "ROUNDED" ? "redondeada · " : ""}{area.realWidthCm} × {area.realHeightCm} cm{area.allowOverflow ? " · edición libre" : ""}{exclusionRects.length ? " · zona protegida" : ""}</span>
     </div>
   </>;
 
@@ -275,7 +324,7 @@ export default function DesignEditor({ product, area, variantColor, previewOnly 
       {scaleControl}
       {fitControls}
       {canvas}
-      <p className="editor-hint">{isDrinkware ? "La imagen completa se proyecta sobre la cara visible del vaso y se comprime hacia los bordes para simular la superficie cilíndrica. Producción conserva tu archivo original plano." : <>Arrastra la imagen y usa los puntos blancos de las esquinas para ampliarla, reducirla o girarla. {area.allowOverflow ? "Puedes extenderla fuera del borde morado y ajustarla sobre toda la prenda." : "El borde morado indica el área imprimible."} Las zonas rosadas están protegidas. Producción utiliza tu archivo original.</>}</p>
+      <p className="editor-hint">{isDrinkware ? "Esta es una vista frontal simple: arrastra la foto y usa los puntos blancos para decidir exactamente qué parte cubre el área morada. No es una simulación 3D." : <>Arrastra la imagen y usa los puntos blancos de las esquinas para ampliarla, reducirla o girarla. {area.allowOverflow ? "Puedes extenderla fuera del borde morado y ajustarla sobre toda la prenda." : "El borde morado indica el área imprimible."} Las zonas rosadas están protegidas. Tu avance se guarda automáticamente y producción utiliza tu archivo original.</>}</p>
     </div>
   );
 }

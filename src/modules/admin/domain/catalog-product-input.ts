@@ -23,6 +23,7 @@ const printAreaSchema = rectangleSchema.and(z.object({
   realWidthCm: z.number().gt(0).max(300),
   realHeightCm: z.number().gt(0).max(300),
   allowOverflow: z.boolean().default(false),
+  shape: z.enum(["RECTANGLE", "ROUNDED", "CIRCLE"]).default("RECTANGLE"),
   exclusions: z.array(printExclusionSchema).max(6).default([]),
 }));
 
@@ -54,6 +55,9 @@ export const catalogProductInputSchema = z.object({
   leadTime: z.string().trim().min(2).max(120),
   techniques: z.array(z.string().trim().min(2).max(80)).min(1).max(12),
   highlights: z.array(z.string().trim().min(2).max(120)).max(12),
+  readyMade: z.boolean().default(false),
+  designTheme: optionalLabel,
+  designTags: z.array(z.string().trim().min(2).max(60)).max(20).default([]),
   variant: z.object({
     sku: z.string().trim().toUpperCase().regex(/^[A-Z0-9_-]+$/).max(60),
     name: z.string().trim().min(2).max(120),
@@ -78,6 +82,9 @@ export const catalogProductInputSchema = z.object({
   if (product.productType === "CASE" && !product.deviceModel) {
     context.addIssue({ code: "custom", path: ["deviceModel"], message: "Indica la referencia exacta del celular" });
   }
+  if (product.readyMade && !product.designTheme) {
+    context.addIssue({ code: "custom", path: ["designTheme"], message: "Indica el tema del diseño listo" });
+  }
 });
 
 export type CatalogProductInput = z.infer<typeof catalogProductInputSchema>;
@@ -94,4 +101,8 @@ export type CatalogProductMetadata = {
   mockupStatus: "CALIBRATED";
   activePrintAreaIds: string[];
   printExclusions: Record<string, Array<{ id: string; name: string; x: number; y: number; width: number; height: number; radius?: number }>>;
+  printAreaShapes: Record<string, "RECTANGLE" | "ROUNDED" | "CIRCLE">;
+  readyMade: boolean;
+  designTheme?: string;
+  designTags: string[];
 };

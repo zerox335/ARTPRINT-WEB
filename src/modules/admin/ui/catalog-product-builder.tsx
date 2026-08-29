@@ -9,13 +9,13 @@ import { AdminImageUploader, type AdminUploadedAsset } from "@/src/modules/admin
 import { VisualAreaCalibrator } from "@/src/modules/admin/ui/visual-area-calibrator";
 
 type MockupView = "FRONT" | "BACK" | "LEFT_SLEEVE" | "RIGHT_SLEEVE" | "WRAP" | "CUSTOM";
-type AreaDraft = { name: string; x: number; y: number; width: number; height: number; realWidthCm: number; realHeightCm: number; allowOverflow: boolean; exclusionEnabled: boolean; exclusionName: string; exclusionX: number; exclusionY: number; exclusionWidth: number; exclusionHeight: number; exclusionRadius: number };
+type AreaDraft = { name: string; x: number; y: number; width: number; height: number; realWidthCm: number; realHeightCm: number; allowOverflow: boolean; shape: "RECTANGLE" | "ROUNDED" | "CIRCLE"; exclusionEnabled: boolean; exclusionName: string; exclusionX: number; exclusionY: number; exclusionWidth: number; exclusionHeight: number; exclusionRadius: number };
 type MockupDraft = { id: string; name: string; view: MockupView; asset?: AdminUploadedAsset; area: AreaDraft };
 
 const viewLabels: Record<MockupView, string> = { FRONT: "Frente", BACK: "Posterior", LEFT_SLEEVE: "Manga izquierda", RIGHT_SLEEVE: "Manga derecha", WRAP: "Envolvente", CUSTOM: "Vista especial" };
 
 function makeMockup(index: number): MockupDraft {
-  return { id: crypto.randomUUID(), name: index ? `Vista ${index + 1}` : "Frente", view: index ? "BACK" : "FRONT", area: { name: "Área principal", x: 30, y: 20, width: 40, height: 55, realWidthCm: 20, realHeightCm: 28, allowOverflow: false, exclusionEnabled: false, exclusionName: "Zona protegida", exclusionX: 30, exclusionY: 5, exclusionWidth: 20, exclusionHeight: 20, exclusionRadius: 8 } };
+  return { id: crypto.randomUUID(), name: index ? `Vista ${index + 1}` : "Frente", view: index ? "BACK" : "FRONT", area: { name: "Área principal", x: 30, y: 20, width: 40, height: 55, realWidthCm: 20, realHeightCm: 28, allowOverflow: false, shape: "RECTANGLE", exclusionEnabled: false, exclusionName: "Zona protegida", exclusionX: 30, exclusionY: 5, exclusionWidth: 20, exclusionHeight: 20, exclusionRadius: 8 } };
 }
 
 function slugify(value: string) {
@@ -91,6 +91,9 @@ export function CatalogProductBuilder({ categories }: { categories: Array<{ id: 
         leadTime: String(form.get("leadTime")),
         techniques: list(form.get("techniques")),
         highlights: list(form.get("highlights")),
+        readyMade: form.get("readyMade") === "on",
+        designTheme: optional(form.get("designTheme")),
+        designTags: list(form.get("designTags")),
         variant: {
           sku: String(form.get("sku")),
           name: String(form.get("variantName")),
@@ -119,6 +122,7 @@ export function CatalogProductBuilder({ categories }: { categories: Array<{ id: 
             realWidthCm: mockup.area.realWidthCm,
             realHeightCm: mockup.area.realHeightCm,
             allowOverflow: mockup.area.allowOverflow,
+            shape: mockup.area.shape,
             exclusions: mockup.area.exclusionEnabled ? [{ name: mockup.area.exclusionName, x: mockup.area.exclusionX, y: mockup.area.exclusionY, width: mockup.area.exclusionWidth, height: mockup.area.exclusionHeight, radius: mockup.area.exclusionRadius }] : [],
           }],
         })) : [],
@@ -154,7 +158,10 @@ export function CatalogProductBuilder({ categories }: { categories: Array<{ id: 
           <label>Técnicas disponibles<input name="techniques" required defaultValue="Sublimación" placeholder="DTF, Sublimación, UV" /></label>
           <label>Insignia opcional<input name="badge" placeholder="Nuevo, Más vendido…" /></label>
           <label className="full-field">Características destacadas<textarea name="highlights" rows={2} placeholder="Una característica por línea o separadas por coma" /></label>
+          <label>Tema del diseño listo<input name="designTheme" placeholder="Anime, cumpleaños, parejas…" /></label>
+          <label>Etiquetas del diseño<input name="designTags" placeholder="anime, dragón, juvenil" /></label>
           <label className="check-field"><input name="featured" type="checkbox" /> Destacar en la tienda</label>
+          <label className="check-field"><input name="readyMade" type="checkbox" /> Mostrar en Diseños listos</label>
           <label className="check-field"><input type="checkbox" checked={customizable} onChange={(event) => setCustomizable(event.target.checked)} /> Permitir personalización</label>
         </div>
       </section>
@@ -192,10 +199,10 @@ export function CatalogProductBuilder({ categories }: { categories: Array<{ id: 
             <div className="admin-mockup-grid">
               <div>
                 <AdminImageUploader label="Imagen base del mockup" hint="Usa el producto vacío, visto de frente a la cámara." value={mockup.asset} onUploaded={(asset) => { updateMockup(mockup.id, (current) => ({ ...current, asset })); addToGallery(asset); }} onRemove={() => updateMockup(mockup.id, (current) => ({ ...current, asset: undefined }))} />
-                {mockup.asset && <VisualAreaCalibrator src={mockup.asset.url} alt={`Previsualización de ${mockup.name}`} width={mockup.asset.width} height={mockup.asset.height} area={mockup.area} onAreaChange={(next) => updateMockup(mockup.id, (current) => ({ ...current, area: { ...current.area, ...next } }))} exclusion={mockup.area.exclusionEnabled ? { x: mockup.area.exclusionX, y: mockup.area.exclusionY, width: mockup.area.exclusionWidth, height: mockup.area.exclusionHeight } : undefined} exclusionRadius={mockup.area.exclusionRadius} onExclusionChange={(next) => updateMockup(mockup.id, (current) => ({ ...current, area: { ...current.area, exclusionX: next.x, exclusionY: next.y, exclusionWidth: next.width, exclusionHeight: next.height } }))} />}
+                {mockup.asset && <VisualAreaCalibrator src={mockup.asset.url} alt={`Previsualización de ${mockup.name}`} width={mockup.asset.width} height={mockup.asset.height} area={mockup.area} shape={mockup.area.shape} onAreaChange={(next) => updateMockup(mockup.id, (current) => ({ ...current, area: { ...current.area, ...next } }))} exclusion={mockup.area.exclusionEnabled ? { x: mockup.area.exclusionX, y: mockup.area.exclusionY, width: mockup.area.exclusionWidth, height: mockup.area.exclusionHeight } : undefined} exclusionRadius={mockup.area.exclusionRadius} onExclusionChange={(next) => updateMockup(mockup.id, (current) => ({ ...current, area: { ...current.area, exclusionX: next.x, exclusionY: next.y, exclusionWidth: next.width, exclusionHeight: next.height } }))} />}
               </div>
               <div className="admin-area-controls">
-                <div className="form-grid"><label>Nombre de vista<input value={mockup.name} onChange={(event) => updateMockup(mockup.id, (current) => ({ ...current, name: event.target.value }))} /></label><label>Orientación<select value={mockup.view} onChange={(event) => updateMockup(mockup.id, (current) => ({ ...current, view: event.target.value as MockupView, name: current.name || viewLabels[event.target.value as MockupView] }))}>{Object.entries(viewLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label><label className="full-field">Nombre del área<input value={mockup.area.name} onChange={(event) => updateMockup(mockup.id, (current) => ({ ...current, area: { ...current.area, name: event.target.value } }))} /></label></div>
+                <div className="form-grid"><label>Nombre de vista<input value={mockup.name} onChange={(event) => updateMockup(mockup.id, (current) => ({ ...current, name: event.target.value }))} /></label><label>Orientación<select value={mockup.view} onChange={(event) => updateMockup(mockup.id, (current) => ({ ...current, view: event.target.value as MockupView, name: current.name || viewLabels[event.target.value as MockupView] }))}>{Object.entries(viewLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label><label>Forma del área<select value={mockup.area.shape} onChange={(event) => updateMockup(mockup.id, (current) => ({ ...current, area: { ...current.area, shape: event.target.value as AreaDraft["shape"] } }))}><option value="RECTANGLE">Rectangular</option><option value="ROUNDED">Redondeada</option><option value="CIRCLE">Circular</option></select></label><label className="full-field">Nombre del área<input value={mockup.area.name} onChange={(event) => updateMockup(mockup.id, (current) => ({ ...current, area: { ...current.area, name: event.target.value } }))} /></label></div>
                 <p className="admin-control-label">Zona imprimible en porcentaje</p>
                 <div className="admin-coordinate-grid"><AreaNumber label="X" value={mockup.area.x} onChange={(value) => updateMockup(mockup.id, (current) => ({ ...current, area: { ...current.area, x: value } }))} /><AreaNumber label="Y" value={mockup.area.y} onChange={(value) => updateMockup(mockup.id, (current) => ({ ...current, area: { ...current.area, y: value } }))} /><AreaNumber label="Ancho" value={mockup.area.width} min={0.1} onChange={(value) => updateMockup(mockup.id, (current) => ({ ...current, area: { ...current.area, width: value } }))} /><AreaNumber label="Alto" value={mockup.area.height} min={0.1} onChange={(value) => updateMockup(mockup.id, (current) => ({ ...current, area: { ...current.area, height: value } }))} /><AreaNumber label="Ancho real" value={mockup.area.realWidthCm} suffix="cm" min={0.1} max={300} onChange={(value) => updateMockup(mockup.id, (current) => ({ ...current, area: { ...current.area, realWidthCm: value } }))} /><AreaNumber label="Alto real" value={mockup.area.realHeightCm} suffix="cm" min={0.1} max={300} onChange={(value) => updateMockup(mockup.id, (current) => ({ ...current, area: { ...current.area, realHeightCm: value } }))} /></div>
                 <label className="check-field"><input type="checkbox" checked={mockup.area.allowOverflow} onChange={(event) => updateMockup(mockup.id, (current) => ({ ...current, area: { ...current.area, allowOverflow: event.target.checked } }))} /> Permitir que el cliente extienda el diseño fuera del borde</label>
