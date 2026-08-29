@@ -13,9 +13,9 @@ export function ProductCard({ product }: { product: ProductView }) {
         <span className="product-arrow" aria-hidden="true"><ArrowUpRight size={20} /></span>
       </Link>
       <div className="product-card-body">
-        <span>{product.categoryName}</span>
+        <span>{product.readyMade && product.designTheme ? product.designTheme : product.categoryName}</span>
         <Link href={`/productos/${product.slug}`}><h3>{product.name}</h3></Link>
-        <div><strong>Desde {formatMoney(product.basePrice)}</strong><small>Personalizable</small></div>
+        <div><strong>Desde {formatMoney(product.basePrice)}</strong><small>{product.readyMade ? "Diseño listo" : "Personalizable"}</small></div>
       </div>
     </article>
   );

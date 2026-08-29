@@ -2,7 +2,7 @@
 
 import Konva from "konva";
 import NextImage from "next/image";
-import { Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer } from "react-konva";
+import { Ellipse, Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer } from "react-konva";
 import { AlignCenter, BringToFront, Copy, Frame, ImagePlus, Layers3, Minus, MousePointer2, Palette, Plus, Redo2, RotateCcw, SendToBack, Sparkles, Trash2, Type, Undo2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from "react";
 import type { PrintAreaView, ProductView } from "@/src/modules/catalog/domain/catalog";
@@ -163,8 +163,10 @@ export default function DesignEditor({ product, area, variantColor, initialEleme
   })), [area.exclusions, width, height]);
   const tracePrintableArea = useCallback((context: Konva.Context | CanvasRenderingContext2D) => {
     context.beginPath();
-    context.rect(areaRect.x, areaRect.y, areaRect.width, areaRect.height);
-  }, [areaRect]);
+    if (area.shape === "CIRCLE") context.ellipse(areaRect.x + areaRect.width / 2, areaRect.y + areaRect.height / 2, areaRect.width / 2, areaRect.height / 2, 0, 0, Math.PI * 2);
+    else if (area.shape === "ROUNDED") context.roundRect(areaRect.x, areaRect.y, areaRect.width, areaRect.height, Math.min(24, areaRect.width / 5, areaRect.height / 5));
+    else context.rect(areaRect.x, areaRect.y, areaRect.width, areaRect.height);
+  }, [area.shape, areaRect]);
   const clipPrintableArea = useMemo(() => (context: Konva.Context) => {
     tracePrintableArea(context);
     for (const exclusion of exclusionRects) {
@@ -180,7 +182,7 @@ export default function DesignEditor({ product, area, variantColor, initialEleme
   const createPreview = useCallback((cleanElements: CustomizationSpec["elements"]) => {
     const mockup = new URL(area.mockupImageUrl ?? product.imageUrl, window.location.origin).toString();
     const clipId = `print-${product.id.replaceAll(/[^a-zA-Z0-9_-]/g, "")}`;
-    const clipPath = `M ${areaRect.x} ${areaRect.y} H ${areaRect.x + areaRect.width} V ${areaRect.y + areaRect.height} H ${areaRect.x} Z`;
+    const clipShape = area.shape === "CIRCLE" ? `<ellipse cx="${areaRect.x + areaRect.width / 2}" cy="${areaRect.y + areaRect.height / 2}" rx="${areaRect.width / 2}" ry="${areaRect.height / 2}"/>` : area.shape === "ROUNDED" ? `<rect x="${areaRect.x}" y="${areaRect.y}" width="${areaRect.width}" height="${areaRect.height}" rx="${Math.min(24, areaRect.width / 5, areaRect.height / 5)}"/>` : `<rect x="${areaRect.x}" y="${areaRect.y}" width="${areaRect.width}" height="${areaRect.height}"/>`;
     const layers = cleanElements.filter((element) => element.printAreaId === area.id).sort((a, b) => a.layerIndex - b.layerIndex).map((element) => {
       const transform = `translate(${element.x} ${element.y}) rotate(${element.rotation}) scale(${element.scaleX} ${element.scaleY})`;
       if (element.type === "IMAGE") {
@@ -191,9 +193,9 @@ export default function DesignEditor({ product, area, variantColor, initialEleme
       const tspans = lines.map((line, index) => `<tspan x="${element.width / 2}" dy="${index ? 32 : 0}">${escapeXml(line)}</tspan>`).join("");
       return `<g transform="${transform}"><text x="${element.width / 2}" y="${Math.max(30, element.height / 2)}" text-anchor="middle" dominant-baseline="middle" font-family="${escapeXml(element.fontFamily)}" font-size="30" font-weight="700" fill="${element.fill}">${tspans}</text></g>`;
     }).join("");
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><clipPath id="${clipId}"><path d="${clipPath}"/></clipPath></defs><image href="${escapeXml(mockup)}" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice"/><g clip-path="url(#${clipId})" opacity=".96">${layers}</g></svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><clipPath id="${clipId}">${clipShape}</clipPath></defs><image href="${escapeXml(mockup)}" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice"/><g clip-path="url(#${clipId})" opacity=".96">${layers}</g></svg>`;
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  }, [area.id, area.mockupImageUrl, areaRect, height, product.id, product.imageUrl, width]);
+  }, [area.id, area.mockupImageUrl, area.shape, areaRect, height, product.id, product.imageUrl, width]);
 
   useEffect(() => {
     const clean = persistedElements(elements);
@@ -276,14 +278,14 @@ export default function DesignEditor({ product, area, variantColor, initialEleme
       {textileColorStyle && <span className="textile-color-layer" style={textileColorStyle} aria-hidden="true" />}
       <Stage width={width} height={height} className="konva-stage" onMouseDown={(event) => { if (event.target === event.target.getStage()) setSelectedId(null); }} onTouchStart={(event) => { if (event.target === event.target.getStage()) setSelectedId(null); }}>
         <Layer listening={false}>
-          <Rect {...areaRect} fill="rgba(128,109,240,.06)" stroke="#806df0" strokeWidth={2} dash={[10, 8]} />
+          {area.shape === "CIRCLE" ? <Ellipse x={areaRect.x + areaRect.width / 2} y={areaRect.y + areaRect.height / 2} radiusX={areaRect.width / 2} radiusY={areaRect.height / 2} fill="rgba(128,109,240,.06)" stroke="#806df0" strokeWidth={2} dash={[10, 8]} /> : <Rect {...areaRect} cornerRadius={area.shape === "ROUNDED" ? Math.min(24, areaRect.width / 5, areaRect.height / 5) : 0} fill="rgba(128,109,240,.06)" stroke="#806df0" strokeWidth={2} dash={[10, 8]} />}
           {exclusionRects.map((exclusion) => <Rect key={exclusion.id} {...exclusion} fill="rgba(255,86,116,.13)" stroke="#ff5674" strokeWidth={2} dash={[6, 5]} />)}
         </Layer>
         <Layer>
           <Group clipFunc={area.allowOverflow ? undefined : clipPrintableArea}>{visible.map((element) => element.type === "IMAGE" ? <EditorImage key={element.id} element={element} selected={selectedId === element.id} onSelect={() => setSelectedId(element.id)} onChange={(updates) => updateElement(element.id, updates)} bounds={movementBounds} /> : <EditorText key={element.id} element={element} selected={selectedId === element.id} onSelect={() => setSelectedId(element.id)} onChange={(updates) => updateElement(element.id, updates)} bounds={movementBounds} />)}</Group>
         </Layer>
       </Stage>
-      <span className="print-area-label">{isDrinkware ? "Área de impresión frontal" : area.name} · {area.realWidthCm} × {area.realHeightCm} cm{area.allowOverflow ? " · edición libre" : ""}{exclusionRects.length ? " · cámara protegida" : ""}</span>
+      <span className="print-area-label">{isDrinkware ? "Área de impresión frontal" : area.name} · {area.shape === "CIRCLE" ? "circular · " : area.shape === "ROUNDED" ? "redondeada · " : ""}{area.realWidthCm} × {area.realHeightCm} cm{area.allowOverflow ? " · edición libre" : ""}{exclusionRects.length ? " · zona protegida" : ""}</span>
     </div>
   </>;
 

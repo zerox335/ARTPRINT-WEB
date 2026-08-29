@@ -33,6 +33,7 @@ export async function createCatalogProduct(input: CatalogProductInput, actorId: 
   }));
 
   const printExclusions: CatalogProductMetadata["printExclusions"] = Object.fromEntries(preparedMockups.flatMap((mockup) => mockup.printAreas.filter((area) => area.exclusions.length).map((area) => [area.id, area.exclusions.map((exclusion) => ({ id: `exclusion-${randomUUID()}`, ...exclusion }))])));
+  const printAreaShapes: CatalogProductMetadata["printAreaShapes"] = Object.fromEntries(preparedMockups.flatMap((mockup) => mockup.printAreas.map((area) => [area.id, area.shape])));
   const metadata: CatalogProductMetadata = {
     productType: input.productType,
     leadTime: input.leadTime,
@@ -45,6 +46,10 @@ export async function createCatalogProduct(input: CatalogProductInput, actorId: 
     mockupStatus: "CALIBRATED",
     activePrintAreaIds: preparedMockups.flatMap((mockup) => mockup.printAreas.map((area) => area.id)),
     printExclusions,
+    printAreaShapes,
+    readyMade: input.readyMade,
+    ...(input.designTheme ? { designTheme: input.designTheme } : {}),
+    designTags: [...new Set(input.designTags)],
   };
 
   return prisma.$transaction(async (transaction) => {

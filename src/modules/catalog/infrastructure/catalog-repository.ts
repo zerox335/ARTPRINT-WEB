@@ -19,6 +19,10 @@ function parsePrintExclusions(metadata: Record<string, unknown>): Record<string,
   }));
 }
 
+function parsePrintAreaShape(value: unknown): "RECTANGLE" | "ROUNDED" | "CIRCLE" {
+  return value === "CIRCLE" || value === "ROUNDED" ? value : "RECTANGLE";
+}
+
 async function loadDbProducts(where?: { slug?: string; variantId?: string; category?: string; query?: string }) {
   return prisma.product.findMany({
     where: {
@@ -41,6 +45,8 @@ function mapProduct(product: DbProduct): ProductView {
   const printExclusions = parsePrintExclusions(metadata);
   const mockupStatus = metadata.mockupStatus === "REFERENCE_ONLY" ? "REFERENCE_ONLY" : "CALIBRATED";
   const activePrintAreaIds = Array.isArray(metadata.activePrintAreaIds) ? new Set(metadata.activePrintAreaIds.filter((item): item is string => typeof item === "string")) : null;
+  const printAreaShapes = metadata.printAreaShapes && typeof metadata.printAreaShapes === "object" && !Array.isArray(metadata.printAreaShapes) ? metadata.printAreaShapes as Record<string, unknown> : {};
+  const designTags = Array.isArray(metadata.designTags) ? metadata.designTags.filter((item): item is string => typeof item === "string") : [];
   return {
     id: product.id,
     name: product.name,
@@ -61,9 +67,12 @@ function mapProduct(product: DbProduct): ProductView {
     leadTime,
     techniques: techniques.length ? techniques : ["DTF"],
     variants: product.variants.map((variant) => ({ id: variant.id, sku: variant.sku, name: variant.name, color: variant.color ?? undefined, colorHex: variant.colorHex ?? undefined, size: variant.size ?? undefined, material: variant.material ?? undefined, technique: variant.technique ?? undefined, priceModifier: variant.priceModifier, available: variant.active })),
-    printAreas: product.mockups.flatMap((mockup) => mockup.printAreas.filter((area) => !activePrintAreaIds || activePrintAreaIds.has(area.id)).map((area) => ({ id: area.id, key: `${mockup.view.toLocaleLowerCase("en")}-${area.name.toLocaleLowerCase("es").replaceAll(" ", "-")}`, name: area.name, view: mockup.view, x: area.x, y: area.y, width: area.width, height: area.height, realWidthCm: area.realWidthCm, realHeightCm: area.realHeightCm, allowOverflow: area.allowOverflow, mirrorMockup: mockup.view === "RIGHT_SLEEVE", mockupImageUrl: mockup.imageUrl, exclusions: printExclusions[area.id] }))),
+    printAreas: product.mockups.flatMap((mockup) => mockup.printAreas.filter((area) => !activePrintAreaIds || activePrintAreaIds.has(area.id)).map((area) => ({ id: area.id, key: `${mockup.view.toLocaleLowerCase("en")}-${area.name.toLocaleLowerCase("es").replaceAll(" ", "-")}`, name: area.name, view: mockup.view, x: area.x, y: area.y, width: area.width, height: area.height, realWidthCm: area.realWidthCm, realHeightCm: area.realHeightCm, allowOverflow: area.allowOverflow, shape: parsePrintAreaShape(printAreaShapes[area.id]), mirrorMockup: mockup.view === "RIGHT_SLEEVE", mockupImageUrl: mockup.imageUrl, exclusions: printExclusions[area.id] }))),
     highlights,
     mockupStatus,
+    readyMade: metadata.readyMade === true,
+    designTheme: typeof metadata.designTheme === "string" ? metadata.designTheme : undefined,
+    designTags,
   };
 }
 
@@ -73,7 +82,12 @@ class HybridCatalogRepository implements CatalogRepository {
     if (!env.DATABASE_URL) throw new Error("DATABASE_URL is required when DEMO_MODE is disabled");
     return database();
   }
-  listProducts(filters?: { category?: string; query?: string }) { return this.withFallback(async () => (await loadDbProducts(filters)).map(mapProduct), () => demoCatalog.listProducts(filters)); }
+  listProducts(filters?: { category?: string; query?: string; readyMade?: boolean; theme?: string }) {
+    return this.withFallback(
+      async () => (await loadDbProducts(filters)).map(mapProduct).filter((product) => (filters?.readyMade === undefined || Boolean(product.readyMade) === filters.readyMade) && (!filters?.theme || product.designTheme === filters.theme)),
+      () => demoCatalog.listProducts(filters),
+    );
+  }
   findBySlug(slug: string) { return this.withFallback(async () => { const [product] = await loadDbProducts({ slug }); return product ? mapProduct(product) : null; }, () => demoCatalog.findBySlug(slug)); }
   findByVariantId(variantId: string) { return this.withFallback(async () => { const [product] = await loadDbProducts({ variantId }); return product ? mapProduct(product) : null; }, () => demoCatalog.findByVariantId(variantId)); }
   listCategories() { return this.withFallback(async () => prisma.category.findMany({ where: { active: true }, orderBy: { position: "asc" }, select: { id: true, name: true, slug: true, description: true, imageUrl: true } }).then((items) => items.map((item) => ({ ...item, description: item.description ?? "", imageUrl: item.imageUrl ?? "/products/camiseta.svg" }))), () => demoCatalog.listCategories()); }

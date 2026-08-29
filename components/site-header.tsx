@@ -16,8 +16,9 @@ export function SiteHeader() {
         <BrandMark />
         <nav className={open ? "main-nav is-open" : "main-nav"} aria-label="Navegación principal">
           <Link href="/catalogo" onClick={() => setOpen(false)}>Productos</Link>
+          <Link href="/disenos-listos" onClick={() => setOpen(false)}>Diseños listos</Link>
           <Link href="/catalogo?category=textiles" onClick={() => setOpen(false)}>Textiles</Link>
-          <Link href="/catalogo?category=mugs-termos" onClick={() => setOpen(false)}>Mugs y vasos</Link>
+          <Link href="/catalogo?category=mugs-termos" onClick={() => setOpen(false)}>Mugs</Link>
           <Link href="/carcasas" onClick={() => setOpen(false)}>Carcasas</Link>
           <Link href="/#como-funciona" onClick={() => setOpen(false)}>Cómo funciona</Link>
         </nav>

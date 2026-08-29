@@ -37,8 +37,12 @@ if errorlevel 1 goto database_error
 echo Actualizando la base de datos...
 call pnpm.cmd db:deploy
 if errorlevel 1 goto database_error
-call pnpm.cmd db:seed
-if errorlevel 1 goto database_error
+if not exist ".artprint-seeded" (
+  echo Cargando el catalogo inicial...
+  call pnpm.cmd db:seed
+  if errorlevel 1 goto database_error
+  type nul > ".artprint-seeded"
+)
 
 echo Iniciando la tienda ArtPrint...
 start "Servidor ArtPrint - no cerrar" cmd.exe /k "pnpm.cmd dev --hostname 127.0.0.1 --port 3000"
